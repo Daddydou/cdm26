@@ -65,7 +65,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
     cdmUser
       ? supabase
           .from('cdm_user_bonuses')
-          .select('id, remaining_uses, bonus:cdm_bonuses(id, name, description, icon)')
+          .select('id, bonus_type, remaining_uses')
           .eq('user_id', cdmUser.id)
           .gt('remaining_uses', 0)
       : Promise.resolve({ data: [], error: null }),
@@ -101,7 +101,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
       playersB={playersB}
       existingPick={pickRes.data ?? null}
       usedPlayerIds={usedPlayerIds}
-      userBonuses={(bonusRes.data ?? []) as any}
+      userBonuses={bonusRes.data ?? []}
       isReadOnly={isReadOnly}
     />
   )

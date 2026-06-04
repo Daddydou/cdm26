@@ -40,8 +40,8 @@ type ExistingPick = {
 
 type BonusRecord = {
   id: string
+  bonus_type: string
   remaining_uses: number
-  bonus: { id: string; name: string; description: string; icon: string } | null
 }
 
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
@@ -278,9 +278,9 @@ export default function PickClient({
 
   // 'star' = option permanente ×1.5, sinon UUID cdm_user_bonuses
   const activeBonus = (activeBonusId && activeBonusId !== 'star')
-    ? userBonuses.find(ub => ub.id === activeBonusId) ?? null
+    ? (userBonuses ?? []).find(ub => ub.id === activeBonusId) ?? null
     : null
-  const activeBonusType = activeBonus?.bonus?.id ?? null
+  const activeBonusType = activeBonus?.bonus_type ?? null
 
   // ── Handlers ──
 
@@ -407,11 +407,11 @@ export default function PickClient({
               >
                 <option value="">Aucun bonus</option>
                 <option value="star">⭐ Joueur ×1.5 (toujours disponible)</option>
-                {userBonuses.map(ub => {
-                  const meta = BONUS_META[ub.bonus?.id ?? '']
+                {(userBonuses ?? []).map(ub => {
+                  const meta = BONUS_META[ub.bonus_type]
                   return (
                     <option key={ub.id} value={ub.id}>
-                      {meta ? `${meta.icon} ${meta.name}` : (ub.bonus?.name ?? 'Bonus')}
+                      {meta ? `${meta.icon} ${meta.name}` : ub.bonus_type}
                       {' '}({ub.remaining_uses} restant{ub.remaining_uses > 1 ? 's' : ''})
                     </option>
                   )
@@ -471,12 +471,14 @@ export default function PickClient({
                 {/* En-tête */}
                 <div className="flex items-start gap-3">
                   <span className="text-2xl leading-none flex-shrink-0">
-                    {BONUS_META[activeBonusType ?? '']?.icon ?? activeBonus.bonus?.icon ?? '🎁'}
+                    {BONUS_META[activeBonusType ?? '']?.icon ?? '🎁'}
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-violet-200">{activeBonus.bonus?.name}</p>
+                    <p className="text-sm font-bold text-violet-200">
+                      {BONUS_META[activeBonusType ?? '']?.name ?? activeBonusType}
+                    </p>
                     <p className="text-xs text-violet-300/80 mt-1 leading-relaxed">
-                      {BONUS_META[activeBonusType ?? '']?.desc ?? activeBonus.bonus?.description}
+                      {BONUS_META[activeBonusType ?? '']?.desc}
                     </p>
                   </div>
                 </div>
