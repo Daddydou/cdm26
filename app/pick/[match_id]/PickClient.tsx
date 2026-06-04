@@ -276,7 +276,10 @@ export default function PickClient({
       fd.set('player_b1_id',    selB[0] ?? '')
       fd.set('player_b2_id',    selB[1] ?? '')
       fd.set('bonus_player_id', bonusPlayer ?? '')
-      fd.set('bonus_type',      (activeBonusId && activeBonusId !== 'star') ? activeBonusId : '')
+      // bonus_type = valeur texte du bonus (ex: 'mur'), user_bonus_id = UUID pour le décrement
+      const activeBonusRecord = (userBonuses ?? []).find(ub => ub.id === activeBonusId)
+      fd.set('bonus_type',    activeBonusRecord?.bonus_type ?? '')
+      fd.set('user_bonus_id', (activeBonusId && activeBonusId !== 'star') ? activeBonusId : '')
       fd.set('bonus_data',      JSON.stringify(bonusData))
 
       const result = await savePick({ error: null }, fd)

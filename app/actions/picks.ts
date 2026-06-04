@@ -23,13 +23,14 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   const homePlayer2  = formData.get('player_a2_id')    as string
   const awayPlayer1  = formData.get('player_b1_id')    as string
   const awayPlayer2  = formData.get('player_b2_id')    as string
-  const starPlayer   = (formData.get('bonus_player_id') as string) || null
-  const bonusId      = (formData.get('bonus_type')      as string) || null
+  const starPlayer    = (formData.get('bonus_player_id') as string) || null
+  const bonusTypeName = (formData.get('bonus_type')     as string) || null  // ex: 'mur', 'sniper'
+  const userBonusId   = (formData.get('user_bonus_id')  as string) || null  // UUID de cdm_user_bonuses
   const bonusDataRaw = (formData.get('bonus_data')      as string) || '{}'
   let bonusData: Record<string, unknown> = {}
   try { bonusData = JSON.parse(bonusDataRaw) } catch { /* JSON malformé ignoré */ }
 
-  console.log('[savePick] formData:', { matchId, homePlayer1, homePlayer2, awayPlayer1, awayPlayer2, starPlayer, bonusId, bonusData })
+  console.log('[savePick] formData:', { matchId, homePlayer1, homePlayer2, awayPlayer1, awayPlayer2, starPlayer, bonusTypeName, userBonusId, bonusData })
 
   if (!matchId || !homePlayer1 || !homePlayer2 || !awayPlayer1 || !awayPlayer2) {
     return { error: 'Sélectionnez 2 joueurs par équipe avant de valider' }
@@ -113,7 +114,7 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
     player_b1_id:    awayPlayer1,
     player_b2_id:    awayPlayer2,
     bonus_player_id: starPlayer,
-    bonus_type:      bonusId,
+    bonus_type:      bonusTypeName,
     bonus_data:      Object.keys(bonusData).length > 0 ? bonusData : null,
   }
   console.log('[savePick] 6. upsert cdm_picks payload:', pickPayload)
@@ -150,11 +151,11 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   console.log('[savePick] 7. player_usage insert error:', usageError?.message, usageError?.code, usageError?.details)
 
   // ── 8. Décrémenter remaining_uses si bonus activé (admin) ──
-  if (bonusId) {
+  if (userBonusId) {
     const { data: bonusRow, error: bonusReadError } = await admin
       .from('cdm_user_bonuses')
       .select('remaining_uses')
-      .eq('id', bonusId)
+      .eq('id', userBonusId)
       .single()
 
     console.log('[savePick] 8. bonus row:', bonusRow, '| read error:', bonusReadError?.message)
@@ -163,7 +164,7 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
       const { error: bonusUpdateError } = await admin
         .from('cdm_user_bonuses')
         .update({ remaining_uses: bonusRow.remaining_uses - 1 })
-        .eq('id', bonusId)
+        .eq('id', userBonusId)
 
       console.log('[savePick] 8. bonus decrement error:', bonusUpdateError?.message)
     }

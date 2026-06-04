@@ -173,9 +173,9 @@ export default async function MatchPage({ params }: { params: { match_id: string
     supabase
       .from('cdm_matches')
       .select(`
-        id, kickoff_at, status, score_a, score_b, phase, multiplier,
-        home_nation:nation_a_id ( id, name ),
-        away_nation:nation_b_id ( id, name )
+        id, kickoff_at, status, score_a, score_b, phase, points_multiplier,
+        nation_a:cdm_nations!nation_a_id ( name, code ),
+        nation_b:cdm_nations!nation_b_id ( name, code )
       `)
       .eq('id', params.match_id)
       .single(),
@@ -216,8 +216,8 @@ export default async function MatchPage({ params }: { params: { match_id: string
 
   const match = matchRes.data
   const picks: PickRow[] = (picksRes.data ?? []) as PickRow[]
-  const homeNation = match.home_nation as { id: string; name: string } | null
-  const awayNation = match.away_nation as { id: string; name: string } | null
+  const nationA = match.nation_a as { name: string; code: string } | null
+  const nationB = match.nation_b as { name: string; code: string } | null
   const me = meRes.data
   const ratingByPlayer = new Map<string, number>(
     (ratingsRes.data ?? []).map(r => [r.player_id, r.rating])
@@ -242,16 +242,16 @@ export default async function MatchPage({ params }: { params: { match_id: string
               ← Retour
             </Link>
             <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
-              <span className="text-xl leading-none">{getFlag(homeNation?.name ?? '')}</span>
-              <span className="text-sm font-bold text-zinc-100 truncate max-w-[75px]">{homeNation?.name}</span>
+              <span className="text-xl leading-none">{isoFlag(nationA?.code ?? '')}</span>
+              <span className="text-sm font-bold text-zinc-100 truncate max-w-[75px]">{nationA?.name}</span>
               <span className="text-sm font-bold text-zinc-400 px-0.5 tabular-nums">
                 {isFinished || isOngoing
                   ? `${match.score_a ?? '?'} - ${match.score_b ?? '?'}`
                   : <span className="text-[10px] text-zinc-600">VS</span>
                 }
               </span>
-              <span className="text-sm font-bold text-zinc-100 truncate max-w-[75px]">{awayNation?.name}</span>
-              <span className="text-xl leading-none">{getFlag(awayNation?.name ?? '')}</span>
+              <span className="text-sm font-bold text-zinc-100 truncate max-w-[75px]">{nationB?.name}</span>
+              <span className="text-xl leading-none">{isoFlag(nationB?.code ?? '')}</span>
             </div>
             <span className={[
               'text-[10px] px-2 py-1 rounded-full font-semibold flex-shrink-0',
@@ -266,10 +266,10 @@ export default async function MatchPage({ params }: { params: { match_id: string
             <p className="text-[11px] text-zinc-500 capitalize">
               {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
             </p>
-            {(match.phase || (match.multiplier && match.multiplier !== 1)) && (
+            {(match.phase || (match.points_multiplier && match.points_multiplier !== 1)) && (
               <p className="text-[10px] text-zinc-600">
                 {match.phase}
-                {match.multiplier && match.multiplier !== 1 && ` • ×${match.multiplier}`}
+                {match.points_multiplier && match.points_multiplier !== 1 && ` • ×${match.points_multiplier}`}
               </p>
             )}
           </div>
