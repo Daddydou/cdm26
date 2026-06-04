@@ -54,6 +54,13 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 type PlayerInPick = { name: string; position: string } | null
 
+type RatingData = {
+  fotmob_rating: number | null
+  goals: number | null
+  assists: number | null
+  penalty_saved: number | null
+}
+
 type PickRow = {
   id: string
   points_finaux: number | null
@@ -70,15 +77,37 @@ type PickRow = {
   user: { id: string; auth_id: string; username: string; photo_url: string | null } | null
 }
 
+// ─── Calcul des points effectifs ──────────────────────────────────────────────
+
+function computeEffectivePoints(
+  pick: PickRow,
+  ratingsMap: Record<string, RatingData>,
+  multiplier: number,
+): number | null {
+  if (pick.points_finaux != null) return pick.points_finaux
+
+  const ids = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
+  if (!ids.some(id => id && ratingsMap[id]?.fotmob_rating != null)) return null
+
+  let total = 0
+  for (const id of ids) {
+    if (!id) continue
+    const rating = ratingsMap[id]?.fotmob_rating ?? 0
+    total += id === pick.bonus_player_id ? rating * 1.5 : rating
+  }
+  return Math.round(total * multiplier * 10) / 10
+}
+
 // ─── PickCard ─────────────────────────────────────────────────────────────────
 
 function PickCard({
-  pick, rank, ratingByPlayer, highlight,
+  pick, rank, ratingsMap, highlight, effectivePoints,
 }: {
   pick: PickRow
   rank: number
-  ratingByPlayer: Map<string, number>
+  ratingsMap: Record<string, RatingData>
   highlight: boolean
+  effectivePoints: number | null
 }) {
   const u = pick.user
   const bonus = pick.bonus_type ? BONUS_META[pick.bonus_type] : null
@@ -120,18 +149,18 @@ function PickCard({
         </span>
 
         <div className="flex-shrink-0 text-right">
-          {pick.points_finaux != null
-            ? <span className="text-sm font-bold text-green-400 tabular-nums">{pick.points_finaux} pts</span>
+          {effectivePoints != null
+            ? <span className="text-sm font-bold text-green-400 tabular-nums">{effectivePoints} pts</span>
             : <span className="text-xs text-zinc-600">—</span>
           }
         </div>
       </div>
 
-      {/* Ligne 2 : joueurs avec notes */}
+      {/* Ligne 2 : joueurs avec notes FotMob + stats */}
       <div className="flex flex-wrap gap-1.5 pl-[47px]">
         {players.map(({ id, info }) => {
           if (!info) return null
-          const rating = id ? ratingByPlayer.get(id) : undefined
+          const r = id ? ratingsMap[id] : undefined
           const isStar = !!id && id === pick.bonus_player_id
           return (
             <span key={id ?? info.name} className={[
@@ -142,10 +171,13 @@ function PickCard({
             ].join(' ')}>
               {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
               <span className="truncate max-w-[72px]">{info.name}</span>
-              {rating != null
-                ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
+              {r?.fotmob_rating != null
+                ? <span className={`font-bold text-[10px] tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
                 : <span className="text-zinc-600 text-[10px]">–</span>
               }
+              {r && (r.goals ?? 0) > 0 && <span className="text-[10px]">⚽</span>}
+              {r && (r.assists ?? 0) > 0 && <span className="text-[10px]">🅰️</span>}
+              {r && (r.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
             </span>
           )
         })}
@@ -169,7 +201,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [matchRes, picksRes, ratingsRes, meRes] = await Promise.all([
+  const [matchRes, picksRes, meRes] = await Promise.all([
     supabase
       .from('cdm_matches')
       .select(`
@@ -194,11 +226,6 @@ export default async function MatchPage({ params }: { params: { match_id: string
       .eq('match_id', params.match_id)
       .order('points_finaux', { ascending: false }),
 
-    supabase
-      .from('cdm_player_ratings')
-      .select('player_id, rating')
-      .eq('match_id', params.match_id),
-
     user
       ? supabase.from('cdm_users').select('id, auth_id').eq('auth_id', user.id).single()
       : Promise.resolve({ data: null, error: null }),
@@ -219,16 +246,38 @@ export default async function MatchPage({ params }: { params: { match_id: string
   const nationA = match.nation_a as { name: string; code: string } | null
   const nationB = match.nation_b as { name: string; code: string } | null
   const me = meRes.data
-  const ratingByPlayer = new Map<string, number>(
-    (ratingsRes.data ?? []).map(r => [r.player_id, r.rating])
+
+  // Ratings FotMob — query séquentielle avec les player IDs des picks
+  const playerIds = [...new Set(
+    picks.flatMap(p => [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id]
+      .filter(Boolean) as string[])
+  )]
+
+  const { data: ratingsData } = playerIds.length > 0
+    ? await supabase
+        .from('cdm_player_ratings')
+        .select('player_id, fotmob_rating, goals, assists, penalty_saved')
+        .eq('match_id', params.match_id)
+        .in('player_id', playerIds)
+    : { data: [] }
+
+  console.log('[match/page] ratings:', ratingsData)
+
+  const ratingsMap: Record<string, RatingData> = Object.fromEntries(
+    (ratingsData ?? []).map(r => [r.player_id, r])
   )
 
   const isUpcoming = match.status === 'a_venir'
   const isOngoing  = match.status === 'en_cours'
   const isFinished = match.status === 'termine'
 
+  const multiplier = match.points_multiplier ?? 1
   const myPick = picks.find(p => (p.user as any)?.auth_id === user?.id) ?? null
-  const rankedPicks = [...picks].sort((a, b) => (b.points_finaux ?? -999) - (a.points_finaux ?? -999))
+  const rankedPicks = [...picks].sort((a, b) => {
+    const ap = computeEffectivePoints(a, ratingsMap, multiplier) ?? -999
+    const bp = computeEffectivePoints(b, ratingsMap, multiplier) ?? -999
+    return bp - ap
+  })
   const myRank = myPick ? rankedPicks.findIndex(p => p.id === myPick.id) + 1 : 0
 
   return (
@@ -320,9 +369,9 @@ export default async function MatchPage({ params }: { params: { match_id: string
             <PickCard
               pick={myPick}
               rank={myRank}
-
-              ratingByPlayer={ratingByPlayer}
+              ratingsMap={ratingsMap}
               highlight
+              effectivePoints={computeEffectivePoints(myPick, ratingsMap, multiplier)}
             />
           </section>
         )}
@@ -339,9 +388,9 @@ export default async function MatchPage({ params }: { params: { match_id: string
                   key={pick.id}
                   pick={pick}
                   rank={i + 1}
-    
-                  ratingByPlayer={ratingByPlayer}
+                  ratingsMap={ratingsMap}
                   highlight={false}
+                  effectivePoints={computeEffectivePoints(pick, ratingsMap, multiplier)}
                 />
               ))}
             </div>
