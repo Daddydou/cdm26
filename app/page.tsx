@@ -16,12 +16,12 @@ type CdmUser = {
 
 type Match = {
   id: string
-  home_team: string
-  away_team: string
   kickoff_at: string
   status: string
   score_a: number | null
   score_b: number | null
+  nation_a: { name: string; code: string } | null
+  nation_b: { name: string; code: string } | null
 }
 
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
@@ -116,14 +116,14 @@ export default async function HomePage() {
 
     supabase
       .from('cdm_matches')
-      .select('id, home_team, away_team, kickoff_at, status, score_a, score_b')
+      .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
       .eq('status', 'a_venir')
       .order('kickoff_at', { ascending: true })
       .limit(5),
 
     supabase
       .from('cdm_matches')
-      .select('id, home_team, away_team, kickoff_at, status, score_a, score_b')
+      .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
       .in('status', ['termine', 'en_cours'])
       .order('kickoff_at', { ascending: false })
       .limit(5),
@@ -200,15 +200,15 @@ export default async function HomePage() {
                     {/* Équipes — cliquable vers la page du match */}
                     <Link href={`/match/${match.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xl leading-none">{getFlag(match.home_team)}</span>
+                        <span className="text-xl leading-none">{iso(match.nation_a?.code ?? '')}</span>
                         <span className="text-sm font-semibold text-zinc-100 truncate max-w-[90px]">
-                          {match.home_team}
+                          {match.nation_a?.name}
                         </span>
                         <span className="text-[10px] font-bold text-zinc-600 px-1">VS</span>
                         <span className="text-sm font-semibold text-zinc-100 truncate max-w-[90px]">
-                          {match.away_team}
+                          {match.nation_b?.name}
                         </span>
-                        <span className="text-xl leading-none">{getFlag(match.away_team)}</span>
+                        <span className="text-xl leading-none">{iso(match.nation_b?.code ?? '')}</span>
                       </div>
                       <p className="text-[11px] text-zinc-500 mt-1 capitalize">
                         {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
@@ -246,13 +246,13 @@ export default async function HomePage() {
                   className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl px-4 py-3 transition-colors"
                 >
                   <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-lg leading-none">{getFlag(match.home_team)}</span>
-                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.home_team}</span>
+                    <span className="text-lg leading-none">{iso(match.nation_a?.code ?? '')}</span>
+                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.nation_a?.name}</span>
                     <span className="text-sm font-bold text-zinc-300 tabular-nums px-1">
                       {match.score_a ?? '?'} - {match.score_b ?? '?'}
                     </span>
-                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.away_team}</span>
-                    <span className="text-lg leading-none">{getFlag(match.away_team)}</span>
+                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.nation_b?.name}</span>
+                    <span className="text-lg leading-none">{iso(match.nation_b?.code ?? '')}</span>
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${
                     match.status === 'termine' ? 'bg-zinc-800 text-zinc-500' : 'bg-orange-950 text-orange-400'
