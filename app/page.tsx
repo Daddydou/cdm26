@@ -137,6 +137,9 @@ export default async function HomePage() {
       : Promise.resolve({ data: null, error: null }),
   ])
 
+  console.log('[page] prochains matchs:', matchesRes.data, matchesRes.error)
+  console.log('[page] matchs récents:', recentMatchesRes.data, (recentMatchesRes as any).error)
+
   const cdmUsers: CdmUser[] = usersRes.data ?? []
   const upcomingMatches: Match[] = matchesRes.data ?? []
   const recentMatches: Match[] = recentMatchesRes.data ?? []
