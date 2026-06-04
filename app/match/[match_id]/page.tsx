@@ -52,7 +52,8 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type PlayerInfo = { id: string; name: string; position: string }
+type PlayerInPick = { name: string; position: string } | null
+
 type PickRow = {
   id: string
   points_finaux: number | null
@@ -62,24 +63,32 @@ type PickRow = {
   player_a2_id: string | null
   player_b1_id: string | null
   player_b2_id: string | null
+  player_a1: PlayerInPick
+  player_a2: PlayerInPick
+  player_b1: PlayerInPick
+  player_b2: PlayerInPick
   user: { id: string; auth_id: string; username: string; photo_url: string | null } | null
 }
 
 // ─── PickCard ─────────────────────────────────────────────────────────────────
 
 function PickCard({
-  pick, rank, playerById, ratingByPlayer, highlight,
+  pick, rank, ratingByPlayer, highlight,
 }: {
   pick: PickRow
   rank: number
-  playerById: Map<string, PlayerInfo>
   ratingByPlayer: Map<string, number>
   highlight: boolean
 }) {
   const u = pick.user
-  const playerIds = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
-    .filter(Boolean) as string[]
   const bonus = pick.bonus_type ? BONUS_META[pick.bonus_type] : null
+
+  const players: Array<{ id: string | null; info: PlayerInPick }> = [
+    { id: pick.player_a1_id, info: pick.player_a1 },
+    { id: pick.player_a2_id, info: pick.player_a2 },
+    { id: pick.player_b1_id, info: pick.player_b1 },
+    { id: pick.player_b2_id, info: pick.player_b2 },
+  ]
 
   return (
     <div className={[
@@ -120,20 +129,19 @@ function PickCard({
 
       {/* Ligne 2 : joueurs avec notes */}
       <div className="flex flex-wrap gap-1.5 pl-[47px]">
-        {playerIds.map(id => {
-          const p = playerById.get(id)
-          if (!p) return <span key={id} className="text-[10px] text-zinc-600">?</span>
-          const rating = ratingByPlayer.get(id)
-          const isStar = id === pick.bonus_player_id
+        {players.map(({ id, info }) => {
+          if (!info) return null
+          const rating = id ? ratingByPlayer.get(id) : undefined
+          const isStar = !!id && id === pick.bonus_player_id
           return (
-            <span key={id} className={[
+            <span key={id ?? info.name} className={[
               'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
               isStar
                 ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
                 : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
             ].join(' ')}>
               {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-              <span className="truncate max-w-[72px]">{p.name}</span>
+              <span className="truncate max-w-[72px]">{info.name}</span>
               {rating != null
                 ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
                 : <span className="text-zinc-600 text-[10px]">–</span>
@@ -177,10 +185,14 @@ export default async function MatchPage({ params }: { params: { match_id: string
       .select(`
         id, points_finaux, bonus_type, bonus_player_id,
         player_a1_id, player_a2_id, player_b1_id, player_b2_id,
-        user:user_id ( id, auth_id, username, photo_url )
+        user:cdm_users!user_id ( id, auth_id, username, photo_url ),
+        player_a1:cdm_players!player_a1_id ( name, position ),
+        player_a2:cdm_players!player_a2_id ( name, position ),
+        player_b1:cdm_players!player_b1_id ( name, position ),
+        player_b2:cdm_players!player_b2_id ( name, position )
       `)
       .eq('match_id', params.match_id)
-      .order('points_finaux', { ascending: false, nullsFirst: false }),
+      .order('points_finaux', { ascending: false }),
 
     supabase
       .from('cdm_player_ratings')
@@ -194,25 +206,14 @@ export default async function MatchPage({ params }: { params: { match_id: string
 
   if (!matchRes.data) notFound()
 
+  console.log('[match/page] picks data:', JSON.stringify(picksRes.data?.slice(0, 2)), '| error:', picksRes.error?.message, picksRes.error?.code)
+  console.log('[match/page] picks count:', picksRes.data?.length ?? 0)
+
   const match = matchRes.data
   const picks: PickRow[] = (picksRes.data ?? []) as PickRow[]
   const homeNation = match.home_nation as { id: string; name: string } | null
   const awayNation = match.away_nation as { id: string; name: string } | null
   const me = meRes.data
-
-  // Batch-fetch tous les joueurs référencés
-  const allPlayerIds = [...new Set(
-    picks.flatMap(p =>
-      [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id, p.bonus_player_id]
-        .filter(Boolean) as string[]
-    )
-  )]
-
-  const playersData = allPlayerIds.length > 0
-    ? (await supabase.from('cdm_players').select('id, name, position').in('id', allPlayerIds)).data ?? []
-    : []
-
-  const playerById = new Map<string, PlayerInfo>(playersData.map(p => [p.id, p]))
   const ratingByPlayer = new Map<string, number>(
     (ratingsRes.data ?? []).map(r => [r.player_id, r.rating])
   )
@@ -314,7 +315,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
             <PickCard
               pick={myPick}
               rank={myRank}
-              playerById={playerById}
+
               ratingByPlayer={ratingByPlayer}
               highlight
             />
@@ -333,7 +334,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
                   key={pick.id}
                   pick={pick}
                   rank={i + 1}
-                  playerById={playerById}
+    
                   ratingByPlayer={ratingByPlayer}
                   highlight={false}
                 />
