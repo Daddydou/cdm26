@@ -40,9 +40,8 @@ type ExistingPick = {
 
 type BonusRecord = {
   id: string
-  name: string
-  description: string
-  icon: string
+  remaining_uses: number
+  bonus: { id: string; name: string; description: string; icon: string } | null
 }
 
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
@@ -267,6 +266,7 @@ export default function PickClient({
   // Bonus de match
   const [activeBonusId, setActiveBonusId] = useState<string | null>(existingPick?.active_bonus_id ?? null)
   const [troisHommePlayer, setTroisHommePlayer] = useState<string | null>(null)
+  const [troisHommeTeam, setTroisHommeTeam] = useState<'A' | 'B' | null>(null)
   const [allInAmount, setAllInAmount] = useState(5)
 
   // Dérivés
@@ -276,8 +276,11 @@ export default function PickClient({
   const allPlayers = [...playersA, ...playersB]
   const remaining = (2 - selA.length) + (2 - selB.length)
 
-  const activeBonus = userBonuses.find(ub => ub.id === activeBonusId)
-  const activeBonusType = activeBonus?.id ?? null
+  // 'star' = option permanente ×1.5, sinon UUID cdm_user_bonuses
+  const activeBonus = (activeBonusId && activeBonusId !== 'star')
+    ? userBonuses.find(ub => ub.id === activeBonusId) ?? null
+    : null
+  const activeBonusType = activeBonus?.bonus?.id ?? null
 
   // ── Handlers ──
 
@@ -296,9 +299,11 @@ export default function PickClient({
     })
   }
 
-  function handleBonusChange(bonusRecordId: string) {
+  function handleBonusChange(val: string) {
     setTroisHommePlayer(null)
-    setActiveBonusId(bonusRecordId || null)
+    setTroisHommeTeam(null)
+    if (val !== 'star') setBonusPlayer(null)
+    setActiveBonusId(val || null)
   }
 
   function handleSubmit() {
@@ -319,7 +324,7 @@ export default function PickClient({
       fd.set('sub_a_id',        subA ?? '')
       fd.set('sub_b_id',        subB ?? '')
       fd.set('bonus_player_id', bonusPlayer ?? '')
-      fd.set('bonus_type',      activeBonusId ?? '')
+      fd.set('bonus_type',      (activeBonusId && activeBonusId !== 'star') ? activeBonusId : '')
       fd.set('bonus_data',      JSON.stringify(bonusData))
 
       const result = await savePick({ error: null }, fd)
@@ -387,56 +392,11 @@ export default function PickClient({
           onToggleSub={id => setSubB(prev => prev === id ? null : id)}
         />
 
-        {/* ══ Joueur bonus ×1.5 ══ */}
-        {canSubmit && (
-          <section className="px-4 py-5 border-b border-zinc-800/50">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-yellow-400 text-base leading-none">★</span>
-              <h2 className="text-sm font-bold text-zinc-100">Joueur bonus ×1.5</h2>
-            </div>
-            <p className="text-xs text-zinc-500 mb-4">
-              Désignez 1 joueur dont la note sera multipliée par 1.5
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {allSelectedIds.map(id => {
-                const p = allPlayers.find(x => x.id === id)
-                if (!p) return null
-                const isStar = bonusPlayer === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    disabled={isReadOnly}
-                    onClick={() => setBonusPlayer(prev => prev === id ? null : id)}
-                    className={[
-                      'flex items-center gap-2.5 px-3 py-3 rounded-xl border transition-all text-left',
-                      isStar
-                        ? 'bg-yellow-950/50 border-yellow-600/70 ring-1 ring-yellow-600/20'
-                        : 'bg-zinc-900/50 border-zinc-800/60 hover:border-zinc-600 cursor-pointer',
-                    ].join(' ')}
-                  >
-                    <span className={`text-base leading-none ${isStar ? 'text-yellow-400' : 'text-zinc-700'}`}>★</span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-semibold truncate leading-tight ${isStar ? 'text-yellow-200' : 'text-zinc-300'}`}>
-                        {p.name}
-                      </p>
-                      <p className={`text-[9px] mt-0.5 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
-                        {POS_LABEL[p.position]}
-                        {isStar && <span className="ml-1 text-yellow-400 font-bold">×1.5</span>}
-                      </p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* ══ Bonus de match ══ */}
+        {/* ══ Bonus & Joueur ×1.5 (section unifiée) ══ */}
         {!isReadOnly && (
           <section className="px-4 py-5 border-b border-zinc-800/50">
-            <h2 className="text-sm font-bold text-zinc-100 mb-1">Votre bonus</h2>
-            <p className="text-xs text-zinc-500 mb-3">1 seul activable par match — optionnel</p>
+            <h2 className="text-sm font-bold text-zinc-100 mb-1">Bonus & Joueur ×1.5</h2>
+            <p className="text-xs text-zinc-500 mb-3">1 option par match — optionnel</p>
 
             {/* ── Dropdown ── */}
             <div className="relative">
@@ -446,11 +406,13 @@ export default function PickClient({
                 className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl px-3.5 py-3 text-sm appearance-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 transition-colors cursor-pointer pr-8"
               >
                 <option value="">Aucun bonus</option>
+                <option value="star">⭐ Joueur ×1.5 (toujours disponible)</option>
                 {userBonuses.map(ub => {
-                  const meta = BONUS_META[ub.id]
+                  const meta = BONUS_META[ub.bonus?.id ?? '']
                   return (
                     <option key={ub.id} value={ub.id}>
-                      {meta ? `${meta.icon} ${meta.name}` : ub.name}
+                      {meta ? `${meta.icon} ${meta.name}` : (ub.bonus?.name ?? 'Bonus')}
+                      {' '}({ub.remaining_uses} restant{ub.remaining_uses > 1 ? 's' : ''})
                     </option>
                   )
                 })}
@@ -460,33 +422,95 @@ export default function PickClient({
               </div>
             </div>
 
-            {/* ── Carte descriptive ── */}
-            {activeBonus && (() => {
-              const meta = BONUS_META[activeBonusType ?? '']
-              return (
-                <div className="mt-3 bg-violet-950/30 border border-violet-800/40 rounded-xl p-4 space-y-4">
-                  {/* En-tête */}
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl leading-none flex-shrink-0">{meta?.icon ?? activeBonus.icon ?? '🎁'}</span>
-                    <div>
-                      <p className="text-sm font-bold text-violet-200">{activeBonus.name}</p>
-                      <p className="text-xs text-violet-300/80 mt-1 leading-relaxed">
-                        {meta?.desc ?? activeBonus.description}
-                      </p>
-                    </div>
+            {/* ── ⭐ Joueur ×1.5 — sélection parmi les 4 joueurs ── */}
+            {activeBonusId === 'star' && (
+              <div className="mt-3 bg-yellow-950/20 border border-yellow-800/30 rounded-xl p-4 space-y-3">
+                <p className="text-xs text-yellow-300 font-medium">
+                  Désignez le joueur dont la note sera ×1.5 :
+                </p>
+                {canSubmit ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {allSelectedIds.map(id => {
+                      const p = allPlayers.find(x => x.id === id)
+                      if (!p) return null
+                      const isStar = bonusPlayer === id
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setBonusPlayer(prev => prev === id ? null : id)}
+                          className={[
+                            'flex items-center gap-2.5 px-3 py-3 rounded-xl border transition-all text-left',
+                            isStar
+                              ? 'bg-yellow-950/50 border-yellow-600/70 ring-1 ring-yellow-600/20'
+                              : 'bg-zinc-900/50 border-zinc-800/60 hover:border-zinc-600 cursor-pointer',
+                          ].join(' ')}
+                        >
+                          <span className={`text-base leading-none ${isStar ? 'text-yellow-400' : 'text-zinc-700'}`}>★</span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold truncate leading-tight ${isStar ? 'text-yellow-200' : 'text-zinc-300'}`}>{p.name}</p>
+                            <p className={`text-[9px] mt-0.5 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
+                              {POS_LABEL[p.position]}{isStar && <span className="ml-1 text-yellow-400 font-bold">×1.5</span>}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
+                ) : (
+                  <p className="text-xs text-zinc-600 italic">
+                    Sélectionnez vos 4 joueurs d&apos;abord pour désigner le joueur ×1.5
+                  </p>
+                )}
+              </div>
+            )}
 
-                  {/* Troisième homme — sélecteur joueur */}
-                  {activeBonusType === 'troisieme_homme' && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-violet-300 font-medium">
-                        Choisissez un 3e joueur dans l&apos;équipe de votre choix :
-                      </p>
+            {/* ── Carte bonus réel (cdm_user_bonuses) ── */}
+            {activeBonus && (
+              <div className="mt-3 bg-violet-950/30 border border-violet-800/40 rounded-xl p-4 space-y-4">
+                {/* En-tête */}
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl leading-none flex-shrink-0">
+                    {BONUS_META[activeBonusType ?? '']?.icon ?? activeBonus.bonus?.icon ?? '🎁'}
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-violet-200">{activeBonus.bonus?.name}</p>
+                    <p className="text-xs text-violet-300/80 mt-1 leading-relaxed">
+                      {BONUS_META[activeBonusType ?? '']?.desc ?? activeBonus.bonus?.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Troisième homme — sélecteur équipe puis joueur */}
+                {activeBonusType === 'troisieme_homme' && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-violet-300 font-medium">Choisissez l&apos;équipe :</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['A', 'B'] as const).map(team => {
+                        const nation = team === 'A' ? match.home_nation : match.away_nation
+                        return (
+                          <button
+                            key={team}
+                            type="button"
+                            onClick={() => { setTroisHommeTeam(team); setTroisHommePlayer(null) }}
+                            className={[
+                              'flex items-center gap-2 px-3 py-2.5 rounded-lg border text-left transition-all text-xs font-medium',
+                              troisHommeTeam === team
+                                ? 'bg-violet-950/60 border-violet-600/50 text-violet-200'
+                                : 'bg-zinc-900/40 border-zinc-800/50 text-zinc-300 hover:border-zinc-600',
+                            ].join(' ')}
+                          >
+                            <span className="text-base leading-none">{getFlag(nation.name)}</span>
+                            <span className="truncate">{nation.name}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {troisHommeTeam && (
                       <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                        {allPlayers
-                          .filter(p => !allSelectedIds.includes(p.id))
+                        {(troisHommeTeam === 'A' ? playersA : playersB)
+                          .filter(p => !(troisHommeTeam === 'A' ? selA : selB).includes(p.id))
                           .map(p => {
-                            const isInA = playersA.some(x => x.id === p.id)
                             const isChosen = troisHommePlayer === p.id
                             return (
                               <button
@@ -500,9 +524,6 @@ export default function PickClient({
                                     : 'bg-zinc-900/40 border-zinc-800/50 text-zinc-300 hover:border-zinc-600',
                                 ].join(' ')}
                               >
-                                <span className="text-base leading-none flex-shrink-0">
-                                  {getFlag(isInA ? match.home_nation.name : match.away_nation.name)}
-                                </span>
                                 <span className="flex-1 text-xs font-medium truncate">{p.name}</span>
                                 <span className={`text-[9px] font-bold flex-shrink-0 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
                                   {POS_LABEL[p.position]}
@@ -513,31 +534,36 @@ export default function PickClient({
                           })
                         }
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
 
-                  {/* All-in — input numérique */}
-                  {activeBonusType === 'all_in' && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-violet-300 font-medium">
-                        Combien de points voulez-vous miser ?
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={allInAmount}
-                          onChange={e => setAllInAmount(Math.min(10, Math.max(1, Number(e.target.value))))}
-                          className="w-20 bg-zinc-800 border border-zinc-700 text-violet-200 rounded-lg px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-violet-500 tabular-nums"
-                        />
-                        <span className="text-xs text-zinc-500">point{allInAmount > 1 ? 's' : ''} (entre 1 et 10)</span>
-                      </div>
+                {/* All-in — input numérique */}
+                {activeBonusType === 'all_in' && (
+                  <div className="space-y-2">
+                    <label className="text-xs text-violet-300 font-medium">Mise (pts) :</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={allInAmount}
+                        onChange={e => setAllInAmount(Math.min(10, Math.max(1, Number(e.target.value))))}
+                        className="w-20 bg-zinc-800 border border-zinc-700 text-violet-200 rounded-lg px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-violet-500 tabular-nums"
+                      />
+                      <span className="text-xs text-zinc-500">entre 1 et 10 pts</span>
                     </div>
-                  )}
-                </div>
-              )
-            })()}
+                  </div>
+                )}
+
+                {/* Espion — message informatif */}
+                {activeBonusType === 'espion' && (
+                  <p className="text-xs text-violet-300 bg-violet-950/40 rounded-lg px-3 py-2.5 leading-relaxed">
+                    🕵️ Vous verrez les picks des autres participants avant le début du match
+                  </p>
+                )}
+              </div>
+            )}
           </section>
         )}
 

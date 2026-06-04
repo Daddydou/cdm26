@@ -62,17 +62,21 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .or('actually_played.is.null,actually_played.eq.true')
       : Promise.resolve({ data: [], error: null }),
 
-    supabase
-      .from('cdm_bonuses')
-      .select('id, name, description, icon')
-      .order('name'),
+    cdmUser
+      ? supabase
+          .from('cdm_user_bonuses')
+          .select('id, remaining_uses, bonus:cdm_bonuses(id, name, description, icon)')
+          .eq('user_id', cdmUser.id)
+          .gt('remaining_uses', 0)
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   console.log('[pick/page] 3a. players count:', playersRes.data?.length, '| error:', playersRes.error?.message)
   console.log('[pick/page] 3b. existingPick:', JSON.stringify(pickRes.data), '| error:', (pickRes as any).error?.message)
   console.log('[pick/page] 3c. usedPlayers count:', usedRes.data?.length, '| error:', (usedRes as any).error?.message)
-  console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', bonusRes.error?.message)
-  console.log('[pick/page] 3d. bonuses data:', JSON.stringify(bonusRes.data))
+  console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', (bonusRes as any).error?.message, (bonusRes as any).error?.code)
+  console.log('[pick/page] 3d. bonuses raw:', JSON.stringify(bonusRes.data))
+  console.log('[pick/page] 3d. cdmUser.id used for bonus query:', cdmUser?.id ?? 'null')
 
   const allPlayers = (playersRes.data ?? []).sort(
     (a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9)
