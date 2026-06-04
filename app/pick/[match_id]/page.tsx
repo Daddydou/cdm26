@@ -75,6 +75,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
   console.log('[pick/page] 3b. existingPick:', JSON.stringify(pickRes.data), '| error:', (pickRes as any).error?.message)
   console.log('[pick/page] 3c. usedPlayers count:', usedRes.data?.length, '| error:', (usedRes as any).error?.message)
   console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', (bonusRes as any).error?.message)
+  console.log('[pick/page] 3d. bonuses data:', JSON.stringify(bonusRes.data))
 
   const allPlayers = (playersRes.data ?? []).sort(
     (a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9)

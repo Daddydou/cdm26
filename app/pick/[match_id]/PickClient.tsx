@@ -82,16 +82,18 @@ const POS_LABEL: Record<string, string>  = { GK: 'GB',  DEF: 'DEF', MID: 'MIL', 
 const POS_COLOR: Record<string, string>  = { GK: 'text-yellow-500', DEF: 'text-blue-400', MID: 'text-emerald-400', FWD: 'text-red-400' }
 const POS_TITLE: Record<string, string>  = { GK: 'Gardiens', DEF: 'Défenseurs', MID: 'Milieux', FWD: 'Attaquants' }
 
-// ─── Descriptions bonus ───────────────────────────────────────────────────────
+// ─── Métadonnées bonus ────────────────────────────────────────────────────────
 
-const BONUS_DESC: Record<string, string> = {
-  double_mise:    'Vos points totaux ce match seront ×2',
-  bouclier:       'Les notes inférieures à 5 seront remontées à 5',
-  sniper:         "Si un de vos joueurs marque, +3 pts",
-  passeur_genie:  "Si un de vos joueurs fait une passe décisive, +3 pts",
-  mur:            "Si votre gardien arrête un pénalty, +5 pts",
-  capitaine_bis:  'Votre joueur bonus sera ×2 au lieu de ×1.5',
-  espion:         'Vous verrez les picks des autres participants avant le début du match',
+const BONUS_META: Record<string, { icon: string; name: string; desc: string }> = {
+  double_mise:     { icon: '⚡', name: 'Double Mise',      desc: 'Vos points totaux ce match seront ×2' },
+  troisieme_homme: { icon: '👤', name: 'Troisième Homme',  desc: 'Ajoutez un 3e joueur à votre sélection. Sa note compte normalement.' },
+  bouclier:        { icon: '🛡️', name: 'Bouclier',         desc: 'Les notes inférieures à 5 seront remontées à 5' },
+  sniper:          { icon: '🎯', name: 'Sniper',           desc: 'Si un de vos joueurs marque, +3 pts' },
+  passeur_genie:   { icon: '🎪', name: 'Passeur de Génie', desc: 'Si un de vos joueurs fait une passe décisive, +3 pts' },
+  mur:             { icon: '🧱', name: 'Mur',              desc: "Si votre gardien arrête un pénalty, +5 pts" },
+  capitaine_bis:   { icon: '👑', name: 'Capitaine Bis',    desc: 'Votre joueur bonus sera ×2 au lieu de ×1.5' },
+  espion:          { icon: '🕵️', name: 'Espion',           desc: 'Vous verrez les picks des autres participants avant le début du match' },
+  all_in:          { icon: '🎲', name: 'All-In',           desc: 'Misez entre 1 et 10 pts de votre total sur ce match' },
 }
 
 // ─── PlayerCard ───────────────────────────────────────────────────────────────
@@ -293,12 +295,9 @@ export default function PickClient({
     })
   }
 
-  function toggleActiveBonus(id: string) {
-    setActiveBonusId(prev => {
-      if (prev === id) { setTroisHommePlayer(null); return null }
-      setTroisHommePlayer(null)
-      return id
-    })
+  function handleBonusChange(bonusRecordId: string) {
+    setTroisHommePlayer(null)
+    setActiveBonusId(bonusRecordId || null)
   }
 
   function handleSubmit() {
@@ -436,120 +435,109 @@ export default function PickClient({
         {!isReadOnly && userBonuses.length > 0 && (
           <section className="px-4 py-5 border-b border-zinc-800/50">
             <h2 className="text-sm font-bold text-zinc-100 mb-1">Votre bonus</h2>
-            <p className="text-xs text-zinc-500 mb-4">
-              1 seul activable par match — cliquez à nouveau pour désactiver
-            </p>
-            <div className="space-y-2">
-              {userBonuses.map(ub => {
-                const bType = ub.bonus?.id ?? ''
-                const isActive = activeBonusId === ub.id
-                return (
-                  <div key={ub.id}>
-                    {/* Toggle button */}
-                    <button
-                      type="button"
-                      onClick={() => toggleActiveBonus(ub.id)}
-                      className={[
-                        'w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all text-left',
-                        isActive
-                          ? 'bg-violet-950/50 border-violet-600/70 ring-1 ring-violet-600/20'
-                          : 'bg-zinc-900/50 border-zinc-800/60 hover:border-zinc-600',
-                      ].join(' ')}
-                    >
-                      <span className="text-xl flex-shrink-0">{ub.bonus?.icon ?? '🎁'}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-semibold ${isActive ? 'text-violet-200' : 'text-zinc-200'}`}>
-                            {ub.bonus?.name ?? 'Bonus'}
-                          </span>
-                          <span className="text-[10px] text-zinc-600">×{ub.remaining_uses} restant{ub.remaining_uses > 1 ? 's' : ''}</span>
-                        </div>
-                        <p className="text-[11px] text-zinc-500 mt-0.5 truncate">{ub.bonus?.description}</p>
-                      </div>
-                      {isActive && <span className="text-violet-400 text-[10px] font-bold flex-shrink-0">Activé ✓</span>}
-                    </button>
+            <p className="text-xs text-zinc-500 mb-3">1 seul activable par match</p>
 
-                    {/* Détails contextuels */}
-                    {isActive && (
-                      <div className="mt-2 ml-3 pl-3.5 border-l-2 border-violet-800/40 py-1 space-y-2">
-
-                        {/* Descriptions simples */}
-                        {BONUS_DESC[bType] && bType !== 'troisieme_homme' && bType !== 'all_in' && (
-                          <p className="text-xs text-violet-300 leading-relaxed">{BONUS_DESC[bType]}</p>
-                        )}
-
-                        {/* Troisième homme — sélecteur joueur */}
-                        {bType === 'troisieme_homme' && (
-                          <div className="space-y-1.5">
-                            <p className="text-xs text-violet-300">
-                              Choisissez un 3e joueur dans l&apos;équipe de votre choix :
-                            </p>
-                            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                              {allPlayers
-                                .filter(p => !allSelectedIds.includes(p.id))
-                                .map(p => {
-                                  const isInA = playersA.some(x => x.id === p.id)
-                                  const isChosen = troisHommePlayer === p.id
-                                  return (
-                                    <button
-                                      key={p.id}
-                                      type="button"
-                                      onClick={() => setTroisHommePlayer(prev => prev === p.id ? null : p.id)}
-                                      className={[
-                                        'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all',
-                                        isChosen
-                                          ? 'bg-violet-950/60 border-violet-600/50 text-violet-200'
-                                          : 'bg-zinc-900/40 border-zinc-800/40 text-zinc-300 hover:border-zinc-600',
-                                      ].join(' ')}
-                                    >
-                                      <span className="text-base leading-none">
-                                        {getFlag(isInA ? match.home_nation.name : match.away_nation.name)}
-                                      </span>
-                                      <span className="flex-1 text-xs truncate font-medium">{p.name}</span>
-                                      <span className={`text-[9px] font-bold ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
-                                        {POS_LABEL[p.position]}
-                                      </span>
-                                      {isChosen && <span className="text-violet-400 text-xs">✓</span>}
-                                    </button>
-                                  )
-                                })
-                              }
-                            </div>
-                          </div>
-                        )}
-
-                        {/* All-in — slider */}
-                        {bType === 'all_in' && (
-                          <div className="space-y-2 py-1">
-                            <p className="text-xs text-violet-300">
-                              Misez entre 1 et 10 pts de votre total :
-                            </p>
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="range"
-                                min={1}
-                                max={10}
-                                step={1}
-                                value={allInAmount}
-                                onChange={e => setAllInAmount(Number(e.target.value))}
-                                className="flex-1 accent-violet-500 h-2 cursor-pointer"
-                              />
-                              <span className="text-sm font-bold text-violet-300 w-12 text-right tabular-nums">
-                                {allInAmount} pts
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[9px] text-zinc-700 px-0.5">
-                              <span>1 pt</span><span>10 pts</span>
-                            </div>
-                          </div>
-                        )}
-
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+            {/* ── Dropdown ── */}
+            <div className="relative">
+              <select
+                value={activeBonusId ?? ''}
+                onChange={e => handleBonusChange(e.target.value)}
+                className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl px-3.5 py-3 text-sm appearance-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 transition-colors cursor-pointer pr-8"
+              >
+                <option value="">Aucun bonus</option>
+                {userBonuses.map(ub => {
+                  const meta = BONUS_META[ub.bonus?.id ?? '']
+                  return (
+                    <option key={ub.id} value={ub.id}>
+                      {meta ? `${meta.icon} ${meta.name}` : (ub.bonus?.name ?? 'Bonus')}
+                      {' '}({ub.remaining_uses} restant{ub.remaining_uses > 1 ? 's' : ''})
+                    </option>
+                  )
+                })}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center">
+                <span className="text-zinc-500 text-xs">▾</span>
+              </div>
             </div>
+
+            {/* ── Carte descriptive ── */}
+            {activeBonus && (() => {
+              const meta = BONUS_META[activeBonusType ?? '']
+              return (
+                <div className="mt-3 bg-violet-950/30 border border-violet-800/40 rounded-xl p-4 space-y-4">
+                  {/* En-tête */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl leading-none flex-shrink-0">{meta?.icon ?? '🎁'}</span>
+                    <div>
+                      <p className="text-sm font-bold text-violet-200">{activeBonus.bonus?.name}</p>
+                      <p className="text-xs text-violet-300/80 mt-1 leading-relaxed">
+                        {meta?.desc ?? activeBonus.bonus?.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Troisième homme — sélecteur joueur */}
+                  {activeBonusType === 'troisieme_homme' && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-violet-300 font-medium">
+                        Choisissez un 3e joueur dans l&apos;équipe de votre choix :
+                      </p>
+                      <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                        {allPlayers
+                          .filter(p => !allSelectedIds.includes(p.id))
+                          .map(p => {
+                            const isInA = playersA.some(x => x.id === p.id)
+                            const isChosen = troisHommePlayer === p.id
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setTroisHommePlayer(prev => prev === p.id ? null : p.id)}
+                                className={[
+                                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all',
+                                  isChosen
+                                    ? 'bg-violet-950/60 border-violet-600/50 text-violet-200'
+                                    : 'bg-zinc-900/40 border-zinc-800/50 text-zinc-300 hover:border-zinc-600',
+                                ].join(' ')}
+                              >
+                                <span className="text-base leading-none flex-shrink-0">
+                                  {getFlag(isInA ? match.home_nation.name : match.away_nation.name)}
+                                </span>
+                                <span className="flex-1 text-xs font-medium truncate">{p.name}</span>
+                                <span className={`text-[9px] font-bold flex-shrink-0 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
+                                  {POS_LABEL[p.position]}
+                                </span>
+                                {isChosen && <span className="text-violet-400 text-xs ml-1">✓</span>}
+                              </button>
+                            )
+                          })
+                        }
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All-in — input numérique */}
+                  {activeBonusType === 'all_in' && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-violet-300 font-medium">
+                        Combien de points voulez-vous miser ?
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={allInAmount}
+                          onChange={e => setAllInAmount(Math.min(10, Math.max(1, Number(e.target.value))))}
+                          className="w-20 bg-zinc-800 border border-zinc-700 text-violet-200 rounded-lg px-3 py-2 text-sm font-bold text-center focus:outline-none focus:border-violet-500 tabular-nums"
+                        />
+                        <span className="text-xs text-zinc-500">point{allInAmount > 1 ? 's' : ''} (entre 1 et 10)</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </section>
         )}
 
