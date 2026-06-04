@@ -43,6 +43,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
+  if (user && pathname.startsWith('/admin')) {
+    const { data: cdmUser } = await supabase
+      .from('cdm_users')
+      .select('is_admin')
+      .eq('auth_id', user.id)
+      .single()
+
+    if (!cdmUser?.is_admin) {
+      console.log('[middleware] accès admin refusé pour', user.email)
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
   return supabaseResponse
 }
 
