@@ -16,8 +16,6 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   const homePlayer2 = formData.get('player_a2_id')    as string
   const awayPlayer1 = formData.get('player_b1_id')    as string
   const awayPlayer2 = formData.get('player_b2_id')    as string
-  const homeSub     = (formData.get('sub_a_id')        as string) || null
-  const awaySub     = (formData.get('sub_b_id')        as string) || null
   const starPlayer  = (formData.get('bonus_player_id') as string) || null
   const bonusId     = (formData.get('bonus_type')      as string) || null
   const bonusDataRaw = (formData.get('bonus_data')     as string) || '{}'
@@ -95,8 +93,6 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
       home_player2_id:  homePlayer2,
       away_player1_id:  awayPlayer1,
       away_player2_id:  awayPlayer2,
-      home_sub_id:      homeSub,
-      away_sub_id:      awaySub,
       star_player_id:   starPlayer,
       active_bonus_id:  bonusId,
       bonus_data:       Object.keys(bonusData).length > 0 ? bonusData : null,

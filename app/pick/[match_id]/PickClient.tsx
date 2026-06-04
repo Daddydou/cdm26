@@ -141,24 +141,19 @@ function PlayerCard({
 // ─── TeamSection ──────────────────────────────────────────────────────────────
 
 function TeamSection({
-  nation, players, selected, sub, usedIds, isReadOnly, onToggle, onToggleSub,
+  nation, players, selected, usedIds, isReadOnly, onToggle,
 }: {
   nation: NationInfo
   players: Player[]
   selected: string[]
-  sub: string | null
   usedIds: Set<string>
   isReadOnly: boolean
   onToggle: (id: string) => void
-  onToggleSub: (id: string) => void
 }) {
-  const POSITIONS = ['GK', 'DEF', 'MID', 'FWD']
-  const grouped = Object.fromEntries(POSITIONS.map(p => [p, players.filter(pl => pl.position === p)]))
-  const subCandidates = players.filter(p => !selected.includes(p.id))
+  const sorted = [...players].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
 
   return (
     <section className="px-4 py-5 border-b border-zinc-800/50">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2.5">
           <span className="text-2xl leading-none">{getFlag(nation.name)}</span>
@@ -183,53 +178,17 @@ function TeamSection({
         )}
       </div>
 
-      {/* Joueurs groupés par position */}
-      <div className="space-y-4">
-        {POSITIONS.map(pos => {
-          const group = grouped[pos] ?? []
-          if (!group.length) return null
-          return (
-            <div key={pos}>
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">
-                {POS_TITLE[pos]}
-              </p>
-              <div className="space-y-1.5">
-                {group.map(player => (
-                  <PlayerCard
-                    key={player.id}
-                    player={player}
-                    isSelected={selected.includes(player.id)}
-                    isDisabled={!isReadOnly && usedIds.has(player.id) && !selected.includes(player.id)}
-                    onClick={() => onToggle(player.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          )
-        })}
+      <div className="space-y-1.5">
+        {sorted.map(player => (
+          <PlayerCard
+            key={player.id}
+            player={player}
+            isSelected={selected.includes(player.id)}
+            isDisabled={!isReadOnly && usedIds.has(player.id) && !selected.includes(player.id)}
+            onClick={() => onToggle(player.id)}
+          />
+        ))}
       </div>
-
-      {/* Remplaçant */}
-      {!isReadOnly && (
-        <div className="mt-5 pt-4 border-t border-zinc-800/40">
-          <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-            Remplaçant
-            {sub && <span className="text-green-600 text-xs">✓</span>}
-            <span className="text-zinc-700 normal-case font-normal tracking-normal">— optionnel</span>
-          </p>
-          <div className="space-y-1.5">
-            {subCandidates.map(player => (
-              <PlayerCard
-                key={player.id}
-                player={player}
-                isSelected={sub === player.id}
-                isDisabled={false}
-                onClick={() => onToggleSub(player.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   )
 }
@@ -257,9 +216,6 @@ export default function PickClient({
   const [selB, setSelB] = useState<string[]>(() =>
     [existingPick?.away_player1_id, existingPick?.away_player2_id].filter(Boolean) as string[]
   )
-  const [subA, setSubA] = useState<string | null>(existingPick?.home_sub_id ?? null)
-  const [subB, setSubB] = useState<string | null>(existingPick?.away_sub_id ?? null)
-
   // Joueur bonus ×1.5
   const [bonusPlayer, setBonusPlayer] = useState<string | null>(existingPick?.star_player_id ?? null)
 
@@ -321,8 +277,6 @@ export default function PickClient({
       fd.set('player_a2_id',    selA[1] ?? '')
       fd.set('player_b1_id',    selB[0] ?? '')
       fd.set('player_b2_id',    selB[1] ?? '')
-      fd.set('sub_a_id',        subA ?? '')
-      fd.set('sub_b_id',        subB ?? '')
       fd.set('bonus_player_id', bonusPlayer ?? '')
       fd.set('bonus_type',      (activeBonusId && activeBonusId !== 'star') ? activeBonusId : '')
       fd.set('bonus_data',      JSON.stringify(bonusData))
@@ -373,11 +327,9 @@ export default function PickClient({
           nation={match.home_nation}
           players={playersA}
           selected={selA}
-          sub={subA}
           usedIds={usedIds}
           isReadOnly={isReadOnly}
           onToggle={toggleSelA}
-          onToggleSub={id => setSubA(prev => prev === id ? null : id)}
         />
 
         {/* ══ Section Équipe B ══ */}
@@ -385,11 +337,9 @@ export default function PickClient({
           nation={match.away_nation}
           players={playersB}
           selected={selB}
-          sub={subB}
           usedIds={usedIds}
           isReadOnly={isReadOnly}
           onToggle={toggleSelB}
-          onToggleSub={id => setSubB(prev => prev === id ? null : id)}
         />
 
         {/* ══ Bonus & Joueur ×1.5 (section unifiée) ══ */}
