@@ -331,25 +331,19 @@ export async function importWorldCup(): Promise<ImportResult> {
     return { error: 'Nation "À Déterminer" introuvable après upsert', ...zero }
   }
 
-  // ── 2. Matchs — fetch existants puis upsert ignoreDuplicates ────────────────
+  // ── 2. Matchs — vérification préalable puis insert classique ────────────────
 
-  const { data: existingMatches } = await admin
-    .from('cdm_matches')
-    .select('kickoff_at, nation_a_id')
-
-  const existingMatchKeys = new Set<string>(
-    (existingMatches ?? []).map(m => `${m.kickoff_at}_${m.nation_a_id}`)
-  )
-
-  const matchRows: {
+  // Construit d'abord tous les matchRows avec les IDs résolus
+  type MatchRow = {
     nation_a_id: string
     nation_b_id: string
     kickoff_at: string
     phase: string
     status: string
     points_multiplier: number
-  }[] = []
+  }
 
+  const allMatchRows: MatchRow[] = []
   let matches_skipped = 0
 
   for (const m of ALL_MATCHES) {
@@ -362,12 +356,7 @@ export async function importWorldCup(): Promise<ImportResult> {
       continue
     }
 
-    if (existingMatchKeys.has(`${m.kickoff}_${nationAId}`)) {
-      matches_skipped++
-      continue
-    }
-
-    matchRows.push({
+    allMatchRows.push({
       nation_a_id:       nationAId,
       nation_b_id:       nationBId,
       kickoff_at:        m.kickoff,
@@ -377,17 +366,31 @@ export async function importWorldCup(): Promise<ImportResult> {
     })
   }
 
+  // Récupère les matchs déjà en base
+  const { data: existingMatches } = await admin
+    .from('cdm_matches')
+    .select('nation_a_id, nation_b_id, kickoff_at')
+
+  const existingKeys = new Set<string>(
+    (existingMatches ?? []).map(m => `${m.nation_a_id}_${m.nation_b_id}_${m.kickoff_at}`)
+  )
+
+  // Filtre les matchs à insérer (combinaison nation_a + nation_b + kickoff unique)
+  const matchesToInsert = allMatchRows.filter(
+    m => !existingKeys.has(`${m.nation_a_id}_${m.nation_b_id}_${m.kickoff_at}`)
+  )
+
+  matches_skipped += allMatchRows.length - matchesToInsert.length
+
   let matches_inserted = 0
   const BATCH = 20
-  for (let i = 0; i < matchRows.length; i += BATCH) {
-    const batch = matchRows.slice(i, i + BATCH)
-    const { error } = await admin
-      .from('cdm_matches')
-      .upsert(batch, { onConflict: 'kickoff_at,nation_a_id', ignoreDuplicates: true })
+  for (let i = 0; i < matchesToInsert.length; i += BATCH) {
+    const batch = matchesToInsert.slice(i, i + BATCH)
+    const { error } = await admin.from('cdm_matches').insert(batch)
 
     if (error) {
       return {
-        error: `Upsert matchs (lot ${Math.floor(i / BATCH) + 1}): ${error.message}`,
+        error: `Insert matchs (lot ${Math.floor(i / BATCH) + 1}): ${error.message}`,
         nations_new, nations_existing, matches_inserted, matches_skipped,
         total_matches: ALL_MATCHES.length, details,
       }
