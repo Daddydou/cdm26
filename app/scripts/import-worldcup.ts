@@ -239,14 +239,14 @@ const TOUR_32: MatchDef[] = [
 
 // Tour de 16 : 8 matchs du 6 au 9 juillet — multiplier x1.4
 const TOUR_16: MatchDef[] = [
-  { a: TBD, b: TBD, kickoff: '2026-07-06T18:00:00Z', phase: 'tour_16', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-06T21:00:00Z', phase: 'tour_16', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-07T18:00:00Z', phase: 'tour_16', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-07T21:00:00Z', phase: 'tour_16', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-08T18:00:00Z', phase: 'tour_16', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-08T21:00:00Z', phase: 'tour_16', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-09T18:00:00Z', phase: 'tour_16', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-09T21:00:00Z', phase: 'tour_16', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-06T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-06T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-07T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-07T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-08T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-08T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-09T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-09T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
 ]
 
 // Quarts de finale : 4 matchs du 11 au 13 juillet — multiplier x1.4
