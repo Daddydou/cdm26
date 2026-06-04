@@ -294,53 +294,45 @@ export async function importWorldCup(): Promise<ImportResult> {
   const admin = createAdminClient()
   const details: string[] = []
 
-  // ── 1. Nations ──────────────────────────────────────────────────────────────
+  const zero = { nations_new: 0, nations_existing: 0, matches_inserted: 0, matches_skipped: 0, total_matches: ALL_MATCHES.length, details }
 
-  const { data: existingNations, error: existNationsError } = await admin
+  // ── 1. Nations — upsert ignoreDuplicates ────────────────────────────────────
+
+  const nationsPayload = [...NATIONS_DATA, { name: 'À Déterminer', code: 'TBD' }]
+
+  const { error: upsertNationsError } = await admin
     .from('cdm_nations')
-    .select('id, name, code')
+    .upsert(nationsPayload, { onConflict: 'name', ignoreDuplicates: true })
 
-  if (existNationsError) {
-    return { error: `Lecture nations: ${existNationsError.message}`, nations_new: 0, nations_existing: 0, matches_inserted: 0, matches_skipped: 0, total_matches: 0, details }
+  if (upsertNationsError) {
+    return { error: `Upsert nations: ${upsertNationsError.message}`, ...zero }
   }
 
-  const existingByName = new Map<string, string>(
-    (existingNations ?? []).map(n => [n.name, n.id])
+  // Recharge toutes les nations pour construire la map id
+  const { data: allNations, error: loadNationsError } = await admin
+    .from('cdm_nations')
+    .select('id, name')
+
+  if (loadNationsError) {
+    return { error: `Chargement nations: ${loadNationsError.message}`, ...zero }
+  }
+
+  const nationIdByName = new Map<string, string>(
+    (allNations ?? []).map(n => [n.name, n.id])
   )
 
-  const toInsertNations = NATIONS_DATA.filter(n => !existingByName.has(n.name))
+  const nations_existing = (allNations ?? []).length
+  const nations_new = nationsPayload.filter(n => !nationIdByName.has(n.name)).length
 
-  let newNations: { id: string; name: string }[] = []
-  if (toInsertNations.length > 0) {
-    const { data, error } = await admin
-      .from('cdm_nations')
-      .insert(toInsertNations)
-      .select('id, name')
-
-    if (error) {
-      return { error: `Insert nations: ${error.message}`, nations_new: 0, nations_existing: existingByName.size, matches_inserted: 0, matches_skipped: 0, total_matches: 0, details }
-    }
-    newNations = data ?? []
-    details.push(`Nations insérées: ${newNations.map(n => n.name).join(', ')}`)
-  }
-
-  const nations_existing = existingByName.size
-  const nations_new = newNations.length
-
-  // Map complet nom → id
-  const nationIdByName = new Map<string, string>([
-    ...existingByName,
-    ...newNations.map(n => [n.name, n.id] as [string, string]),
-  ])
+  details.push(`Nations en base: ${nations_existing}`)
 
   const tbdId = nationIdByName.get('À Déterminer')
   if (!tbdId) {
-    return { error: 'Nation "À Déterminer" introuvable après insert', nations_new, nations_existing, matches_inserted: 0, matches_skipped: 0, total_matches: 0, details }
+    return { error: 'Nation "À Déterminer" introuvable après upsert', ...zero }
   }
 
-  // ── 2. Matchs ───────────────────────────────────────────────────────────────
+  // ── 2. Matchs — fetch existants puis upsert ignoreDuplicates ────────────────
 
-  // Récupère les matchs existants pour éviter les doublons (par kickoff_at + nation_a_id)
   const { data: existingMatches } = await admin
     .from('cdm_matches')
     .select('kickoff_at, nation_a_id')
@@ -365,53 +357,45 @@ export async function importWorldCup(): Promise<ImportResult> {
     const nationBId = m.b === TBD ? tbdId : nationIdByName.get(m.b)
 
     if (!nationAId || !nationBId) {
-      details.push(`⚠ Nation inconnue: "${m.a}" ou "${m.b}" — match ${m.kickoff_at} ignoré`)
+      details.push(`⚠ Nation inconnue: "${m.a}" ou "${m.b}" — ignoré`)
       matches_skipped++
       continue
     }
 
-    const key = `${m.kickoff_at}_${nationAId}`
-    if (existingMatchKeys.has(key)) {
+    if (existingMatchKeys.has(`${m.kickoff}_${nationAId}`)) {
       matches_skipped++
       continue
     }
 
     matchRows.push({
-      nation_a_id:      nationAId,
-      nation_b_id:      nationBId,
-      kickoff_at:       m.kickoff,
-      phase:            m.phase,
-      status:           'a_venir',
+      nation_a_id:       nationAId,
+      nation_b_id:       nationBId,
+      kickoff_at:        m.kickoff,
+      phase:             m.phase,
+      status:            'a_venir',
       points_multiplier: m.multiplier ?? 1,
     })
   }
 
   let matches_inserted = 0
-  if (matchRows.length > 0) {
-    // Insert par lot de 20 pour éviter les timeouts
-    const BATCH = 20
-    for (let i = 0; i < matchRows.length; i += BATCH) {
-      const batch = matchRows.slice(i, i + BATCH)
-      const { error } = await admin.from('cdm_matches').insert(batch)
-      if (error) {
-        return {
-          error: `Insert matchs (lot ${i / BATCH + 1}): ${error.message}`,
-          nations_new, nations_existing, matches_inserted, matches_skipped,
-          total_matches: ALL_MATCHES.length, details,
-        }
+  const BATCH = 20
+  for (let i = 0; i < matchRows.length; i += BATCH) {
+    const batch = matchRows.slice(i, i + BATCH)
+    const { error } = await admin
+      .from('cdm_matches')
+      .upsert(batch, { onConflict: 'kickoff_at,nation_a_id', ignoreDuplicates: true })
+
+    if (error) {
+      return {
+        error: `Upsert matchs (lot ${Math.floor(i / BATCH) + 1}): ${error.message}`,
+        nations_new, nations_existing, matches_inserted, matches_skipped,
+        total_matches: ALL_MATCHES.length, details,
       }
-      matches_inserted += batch.length
     }
+    matches_inserted += batch.length
   }
 
-  details.push(`Matchs insérés: ${matches_inserted} | Ignorés (doublons): ${matches_skipped}`)
+  details.push(`Matchs insérés: ${matches_inserted} | Ignorés: ${matches_skipped}`)
 
-  return {
-    nations_new,
-    nations_existing,
-    matches_inserted,
-    matches_skipped,
-    total_matches: ALL_MATCHES.length,
-    details,
-  }
+  return { nations_new, nations_existing, matches_inserted, matches_skipped, total_matches: ALL_MATCHES.length, details }
 }
