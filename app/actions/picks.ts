@@ -108,12 +108,12 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   const pickPayload = {
     user_id:         cdmUser.id,
     match_id:        matchId,
-    home_player1_id: homePlayer1,
-    home_player2_id: homePlayer2,
-    away_player1_id: awayPlayer1,
-    away_player2_id: awayPlayer2,
-    star_player_id:  starPlayer,
-    active_bonus_id: bonusId,
+    player_a1_id:    homePlayer1,
+    player_a2_id:    homePlayer2,
+    player_b1_id:    awayPlayer1,
+    player_b2_id:    awayPlayer2,
+    bonus_player_id: starPlayer,
+    bonus_type:      bonusId,
     bonus_data:      Object.keys(bonusData).length > 0 ? bonusData : null,
   }
   console.log('[savePick] 6. upsert cdm_picks payload:', pickPayload)
@@ -134,10 +134,11 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
 
   console.log('[savePick] 7. player_usage delete error:', deleteError?.message)
 
-  const usageRows = mainIds.map(playerId => ({
+  const usageRows = mainIds.map((playerId, i) => ({
     user_id:         cdmUser.id,
     player_id:       playerId,
     match_id:        matchId,
+    role:            i < 2 ? 'titulaire_a' : 'titulaire_b',
     actually_played: null,
   }))
   console.log('[savePick] 7. player_usage insert rows:', usageRows)

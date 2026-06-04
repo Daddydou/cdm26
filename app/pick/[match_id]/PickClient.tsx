@@ -28,14 +28,12 @@ type MatchData = {
 }
 
 type ExistingPick = {
-  home_player1_id?: string | null
-  home_player2_id?: string | null
-  away_player1_id?: string | null
-  away_player2_id?: string | null
-  home_sub_id?: string | null
-  away_sub_id?: string | null
-  star_player_id?: string | null
-  active_bonus_id?: string | null
+  player_a1_id?: string | null
+  player_a2_id?: string | null
+  player_b1_id?: string | null
+  player_b2_id?: string | null
+  bonus_player_id?: string | null
+  bonus_type?: string | null
 }
 
 type BonusRecord = {
@@ -211,16 +209,16 @@ export default function PickClient({
 
   // Sélections principales
   const [selA, setSelA] = useState<string[]>(() =>
-    [existingPick?.home_player1_id, existingPick?.home_player2_id].filter(Boolean) as string[]
+    [existingPick?.player_a1_id, existingPick?.player_a2_id].filter(Boolean) as string[]
   )
   const [selB, setSelB] = useState<string[]>(() =>
-    [existingPick?.away_player1_id, existingPick?.away_player2_id].filter(Boolean) as string[]
+    [existingPick?.player_b1_id, existingPick?.player_b2_id].filter(Boolean) as string[]
   )
   // Joueur bonus ×1.5
-  const [bonusPlayer, setBonusPlayer] = useState<string | null>(existingPick?.star_player_id ?? null)
+  const [bonusPlayer, setBonusPlayer] = useState<string | null>(existingPick?.bonus_player_id ?? null)
 
   // Bonus de match
-  const [activeBonusId, setActiveBonusId] = useState<string | null>(existingPick?.active_bonus_id ?? null)
+  const [activeBonusId, setActiveBonusId] = useState<string | null>(existingPick?.bonus_type ?? null)
   const [troisHommePlayer, setTroisHommePlayer] = useState<string | null>(null)
   const [troisHommeTeam, setTroisHommeTeam] = useState<'A' | 'B' | null>(null)
   const [allInAmount, setAllInAmount] = useState(5)
