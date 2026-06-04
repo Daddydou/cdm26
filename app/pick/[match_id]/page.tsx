@@ -8,8 +8,10 @@ export default async function PickPage({ params }: { params: { match_id: string 
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Match + nations via FK join
-  const { data: match } = await supabase
+  console.log('[pick/page] match_id:', params.match_id, '| user:', user?.email ?? 'non connecté')
+
+  // 1. Match + nations via FK join
+  const { data: match, error: matchError } = await supabase
     .from('cdm_matches')
     .select(`
       id, match_date, status,
@@ -19,16 +21,23 @@ export default async function PickPage({ params }: { params: { match_id: string 
     .eq('id', params.match_id)
     .single()
 
+  console.log('[pick/page] 1. match:', JSON.stringify(match), '| error:', matchError?.message, matchError?.code)
+
   if (!match) notFound()
 
   const homeNation = match.home_nation as { id: string; name: string }
   const awayNation = match.away_nation as { id: string; name: string }
 
-  // Profil CDM
-  const { data: cdmUser } = user
-    ? await supabase.from('cdm_users').select('id').eq('auth_id', user.id).single()
-    : { data: null }
+  console.log('[pick/page] homeNation:', homeNation, '| awayNation:', awayNation)
 
+  // 2. Profil CDM
+  const { data: cdmUser, error: cdmUserError } = user
+    ? await supabase.from('cdm_users').select('id').eq('auth_id', user.id).single()
+    : { data: null, error: null }
+
+  console.log('[pick/page] 2. cdmUser:', cdmUser, '| error:', cdmUserError?.message)
+
+  // 3. Requêtes parallèles
   const [playersRes, pickRes, usedRes, bonusRes] = await Promise.all([
     supabase
       .from('cdm_players')
@@ -42,7 +51,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .eq('match_id', params.match_id)
           .eq('user_id', cdmUser.id)
           .maybeSingle()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: null, error: null }),
 
     cdmUser
       ? supabase
@@ -51,7 +60,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .eq('user_id', cdmUser.id)
           .neq('match_id', params.match_id)
           .or('actually_played.is.null,actually_played.eq.true')
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
 
     cdmUser
       ? supabase
@@ -59,8 +68,13 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .select('id, remaining_uses, bonus:cdm_bonuses ( id, name, description, icon )')
           .eq('user_id', cdmUser.id)
           .gt('remaining_uses', 0)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ])
+
+  console.log('[pick/page] 3a. players count:', playersRes.data?.length, '| error:', playersRes.error?.message)
+  console.log('[pick/page] 3b. existingPick:', JSON.stringify(pickRes.data), '| error:', (pickRes as any).error?.message)
+  console.log('[pick/page] 3c. usedPlayers count:', usedRes.data?.length, '| error:', (usedRes as any).error?.message)
+  console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', (bonusRes as any).error?.message)
 
   const allPlayers = (playersRes.data ?? []).sort(
     (a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9)
@@ -69,10 +83,14 @@ export default async function PickPage({ params }: { params: { match_id: string 
   const homePlayers = allPlayers.filter(p => p.nation_id === homeNation.id)
   const awayPlayers = allPlayers.filter(p => p.nation_id === awayNation.id)
 
+  console.log('[pick/page] homePlayers:', homePlayers.length, '| awayPlayers:', awayPlayers.length)
+
   const usedPlayerIds: string[] = (usedRes.data ?? []).map((r: { player_id: string }) => r.player_id)
 
   const isReadOnly =
     match.status !== 'a_venir' || new Date(match.match_date) <= new Date()
+
+  console.log('[pick/page] isReadOnly:', isReadOnly, '| status:', match.status, '| match_date:', match.match_date)
 
   return (
     <PickClient
