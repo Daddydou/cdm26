@@ -204,10 +204,15 @@ export default async function MatchPage({ params }: { params: { match_id: string
       : Promise.resolve({ data: null, error: null }),
   ])
 
-  if (!matchRes.data) notFound()
-
+  console.log('[match/page] match_id param:', params.match_id)
+  console.log('[match/page] matchRes.data:', JSON.stringify(matchRes.data), '| error:', matchRes.error?.message, matchRes.error?.code)
   console.log('[match/page] picks data:', JSON.stringify(picksRes.data?.slice(0, 2)), '| error:', picksRes.error?.message, picksRes.error?.code)
   console.log('[match/page] picks count:', picksRes.data?.length ?? 0)
+
+  if (!matchRes.data) {
+    console.log('[match/page] notFound déclenché — match introuvable pour id:', params.match_id)
+    notFound()
+  }
 
   const match = matchRes.data
   const picks: PickRow[] = (picksRes.data ?? []) as PickRow[]
