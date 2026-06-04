@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PUBLIC_PATHS = ['/connexion', '/inscription']
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -25,8 +27,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session — do not remove, keeps session alive
-  await supabase.auth.getUser()
+  // Ne pas supprimer — maintient la session active
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { pathname } = request.nextUrl
+  const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
+
+  if (!user && !isPublic) {
+    return NextResponse.redirect(new URL('/connexion', request.url))
+  }
+
+  if (user && isPublic) {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
 
   return supabaseResponse
 }
