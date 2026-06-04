@@ -120,21 +120,15 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
       actually_played: null,
     })))
 
-  // 8. Décrémenter le bonus si activé
+  // 8. Enregistrer l'utilisation du bonus si activé
   if (bonusId) {
-    const { data: ub } = await supabase
+    await supabase
       .from('cdm_user_bonuses')
-      .select('remaining_uses')
-      .eq('id', bonusId)
-      .eq('user_id', cdmUser.id)
-      .single()
-
-    if (ub && ub.remaining_uses > 0) {
-      await supabase
-        .from('cdm_user_bonuses')
-        .update({ remaining_uses: ub.remaining_uses - 1 })
-        .eq('id', bonusId)
-    }
+      .upsert({
+        user_id:   cdmUser.id,
+        bonus_id:  bonusId,
+        match_id:  matchId,
+      }, { onConflict: 'user_id,bonus_id,match_id' })
   }
 
   redirect('/')

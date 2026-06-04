@@ -40,8 +40,9 @@ type ExistingPick = {
 
 type BonusRecord = {
   id: string
-  remaining_uses: number
-  bonus: { id: string; name: string; description: string; icon: string } | null
+  name: string
+  description: string
+  icon: string
 }
 
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
@@ -276,7 +277,7 @@ export default function PickClient({
   const remaining = (2 - selA.length) + (2 - selB.length)
 
   const activeBonus = userBonuses.find(ub => ub.id === activeBonusId)
-  const activeBonusType = activeBonus?.bonus?.id ?? null
+  const activeBonusType = activeBonus?.id ?? null
 
   // ── Handlers ──
 
@@ -432,10 +433,10 @@ export default function PickClient({
         )}
 
         {/* ══ Bonus de match ══ */}
-        {!isReadOnly && userBonuses.length > 0 && (
+        {!isReadOnly && (
           <section className="px-4 py-5 border-b border-zinc-800/50">
             <h2 className="text-sm font-bold text-zinc-100 mb-1">Votre bonus</h2>
-            <p className="text-xs text-zinc-500 mb-3">1 seul activable par match</p>
+            <p className="text-xs text-zinc-500 mb-3">1 seul activable par match — optionnel</p>
 
             {/* ── Dropdown ── */}
             <div className="relative">
@@ -446,11 +447,10 @@ export default function PickClient({
               >
                 <option value="">Aucun bonus</option>
                 {userBonuses.map(ub => {
-                  const meta = BONUS_META[ub.bonus?.id ?? '']
+                  const meta = BONUS_META[ub.id]
                   return (
                     <option key={ub.id} value={ub.id}>
-                      {meta ? `${meta.icon} ${meta.name}` : (ub.bonus?.name ?? 'Bonus')}
-                      {' '}({ub.remaining_uses} restant{ub.remaining_uses > 1 ? 's' : ''})
+                      {meta ? `${meta.icon} ${meta.name}` : ub.name}
                     </option>
                   )
                 })}
@@ -467,11 +467,11 @@ export default function PickClient({
                 <div className="mt-3 bg-violet-950/30 border border-violet-800/40 rounded-xl p-4 space-y-4">
                   {/* En-tête */}
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl leading-none flex-shrink-0">{meta?.icon ?? '🎁'}</span>
+                    <span className="text-2xl leading-none flex-shrink-0">{meta?.icon ?? activeBonus.icon ?? '🎁'}</span>
                     <div>
-                      <p className="text-sm font-bold text-violet-200">{activeBonus.bonus?.name}</p>
+                      <p className="text-sm font-bold text-violet-200">{activeBonus.name}</p>
                       <p className="text-xs text-violet-300/80 mt-1 leading-relaxed">
-                        {meta?.desc ?? activeBonus.bonus?.description}
+                        {meta?.desc ?? activeBonus.description}
                       </p>
                     </div>
                   </div>
