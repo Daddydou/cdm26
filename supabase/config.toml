@@ -1,5 +1,5 @@
-[project]
-id = "ubnkuwyqclrjckogldlc"
+# project id : ubnkuwyqclrjckogldlc
+# (section [project] retirée — conflit avec le CLI Supabase)
 
 [functions.lock-picks]
 verify_jwt = false
