@@ -33,6 +33,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
 
+  console.log('[middleware]', pathname, '|', user ? `connecté (${user.email})` : 'non connecté', '|', isPublic ? 'public' : 'protégé')
+
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/connexion', request.url))
   }
