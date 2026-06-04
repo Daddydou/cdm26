@@ -1,0 +1,14 @@
+[project]
+id = "ubnkuwyqclrjckogldlc"
+
+[functions.lock-picks]
+verify_jwt = false
+# Cron : toutes les minutes
+# À configurer dans Dashboard → Edge Functions → lock-picks → Schedules
+# Schedule : * * * * *
+
+[functions.match-reminder]
+verify_jwt = false
+# Cron : toutes les heures
+# À configurer dans Dashboard → Edge Functions → match-reminder → Schedules
+# Schedule : 0 * * * *
