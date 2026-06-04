@@ -80,10 +80,10 @@ export default async function PickPage({ params }: { params: { match_id: string 
     (a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9)
   )
 
-  const homePlayers = allPlayers.filter(p => p.nation_id === homeNation.id)
-  const awayPlayers = allPlayers.filter(p => p.nation_id === awayNation.id)
+  const playersA = allPlayers.filter(p => p.nation_id === homeNation.id)
+  const playersB = allPlayers.filter(p => p.nation_id === awayNation.id)
 
-  console.log('[pick/page] homePlayers:', homePlayers.length, '| awayPlayers:', awayPlayers.length)
+  console.log('[pick/page] playersA:', playersA.length, '| playersB:', playersB.length)
 
   const usedPlayerIds: string[] = (usedRes.data ?? []).map((r: { player_id: string }) => r.player_id)
 
@@ -95,8 +95,8 @@ export default async function PickPage({ params }: { params: { match_id: string 
   return (
     <PickClient
       match={{ ...match, home_nation: homeNation, away_nation: awayNation }}
-      homePlayers={homePlayers}
-      awayPlayers={awayPlayers}
+      playersA={playersA}
+      playersB={playersB}
       existingPick={pickRes.data ?? null}
       usedPlayerIds={usedPlayerIds}
       userBonuses={(bonusRes.data ?? []) as any}

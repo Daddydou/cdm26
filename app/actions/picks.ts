@@ -20,6 +20,9 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   const awaySub     = (formData.get('sub_b_id')        as string) || null
   const starPlayer  = (formData.get('bonus_player_id') as string) || null
   const bonusId     = (formData.get('bonus_type')      as string) || null
+  const bonusDataRaw = (formData.get('bonus_data')     as string) || '{}'
+  let bonusData: Record<string, unknown> = {}
+  try { bonusData = JSON.parse(bonusDataRaw) } catch { /* ignore malformed JSON */ }
 
   if (!homePlayer1 || !homePlayer2 || !awayPlayer1 || !awayPlayer2) {
     return { error: 'Sélectionnez 2 joueurs par équipe avant de valider' }
@@ -96,6 +99,7 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
       away_sub_id:      awaySub,
       star_player_id:   starPlayer,
       active_bonus_id:  bonusId,
+      bonus_data:       Object.keys(bonusData).length > 0 ? bonusData : null,
     }, { onConflict: 'user_id,match_id' })
 
   if (pickError) return { error: 'Erreur lors de la sauvegarde des picks' }
