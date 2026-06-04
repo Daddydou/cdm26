@@ -119,14 +119,14 @@ export default async function HomePage() {
       .select('id, home_team, away_team, kickoff_at, status, score_a, score_b')
       .eq('status', 'a_venir')
       .order('kickoff_at', { ascending: true })
-      .limit(3),
+      .limit(5),
 
     supabase
       .from('cdm_matches')
       .select('id, home_team, away_team, kickoff_at, status, score_a, score_b')
       .in('status', ['termine', 'en_cours'])
       .order('kickoff_at', { ascending: false })
-      .limit(3),
+      .limit(5),
 
     user
       ? supabase
@@ -233,7 +233,7 @@ export default async function HomePage() {
         {recentMatches.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
-              Résultats récents
+              Matchs récents
             </h2>
             <div className="space-y-2">
               {recentMatches.map(match => (
