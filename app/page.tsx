@@ -145,6 +145,16 @@ export default async function HomePage() {
   const recentMatches: Match[] = recentMatchesRes.data ?? []
   const me = meRes.data
 
+  // Picks déjà effectués par l'utilisateur pour les prochains matchs
+  let userPickedMatchIds = new Set<string>()
+  if (me) {
+    const { data: userPicks } = await supabase
+      .from('cdm_picks')
+      .select('match_id')
+      .eq('user_id', me.id)
+    userPickedMatchIds = new Set(userPicks?.map(p => p.match_id) ?? [])
+  }
+
   // Nombre de matchs joués par user_id
   const matchesPlayed: Record<string, number> = {}
   for (const pick of (picksRes.data ?? [])) {
@@ -216,12 +226,19 @@ export default async function HomePage() {
                     </Link>
 
                     {/* CTA */}
-                    <Link
-                      href={`/pick/${match.id}`}
-                      className="flex-shrink-0 px-3.5 py-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors"
-                    >
-                      Pronostic
-                    </Link>
+                    <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                      {userPickedMatchIds.has(match.id) && (
+                        <span className="text-[10px] text-green-500 font-semibold flex items-center gap-0.5 whitespace-nowrap">
+                          ✅ Picks effectués
+                        </span>
+                      )}
+                      <Link
+                        href={`/pick/${match.id}`}
+                        className="px-3.5 py-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors"
+                      >
+                        Pronostic
+                      </Link>
+                    </div>
                   </div>
 
                   {/* Barre verte fine en bas */}
