@@ -111,8 +111,7 @@ export default async function HomePage() {
 
     supabase
       .from('cdm_picks')
-      .select('user_id')
-      .not('points_finaux', 'is', null),
+      .select('user_id, match_id'),
 
     supabase
       .from('cdm_matches')
