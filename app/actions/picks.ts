@@ -28,7 +28,7 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   // 1. Vérifier que le match est encore ouvert
   const { data: match } = await supabase
     .from('cdm_matches')
-    .select('status, match_date, home_nation_id, away_nation_id')
+    .select('status, match_date, nation_a_id, nation_b_id')
     .eq('id', matchId)
     .single()
 
@@ -55,12 +55,12 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
 
   const nationById = new Map(players?.map(p => [p.id, p.nation_id]) ?? [])
 
-  if (nationById.get(homePlayer1) !== match.home_nation_id ||
-      nationById.get(homePlayer2) !== match.home_nation_id) {
+  if (nationById.get(homePlayer1) !== match.nation_a_id ||
+      nationById.get(homePlayer2) !== match.nation_a_id) {
     return { error: "Joueurs invalides pour l'équipe domicile" }
   }
-  if (nationById.get(awayPlayer1) !== match.away_nation_id ||
-      nationById.get(awayPlayer2) !== match.away_nation_id) {
+  if (nationById.get(awayPlayer1) !== match.nation_b_id ||
+      nationById.get(awayPlayer2) !== match.nation_b_id) {
     return { error: "Joueurs invalides pour l'équipe extérieur" }
   }
 

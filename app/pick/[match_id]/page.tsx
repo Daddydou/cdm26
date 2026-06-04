@@ -13,8 +13,8 @@ export default async function PickPage({ params }: { params: { match_id: string 
     .from('cdm_matches')
     .select(`
       id, match_date, status,
-      home_nation:home_nation_id ( id, name ),
-      away_nation:away_nation_id ( id, name )
+      home_nation:nation_a_id ( id, name ),
+      away_nation:nation_b_id ( id, name )
     `)
     .eq('id', params.match_id)
     .single()
