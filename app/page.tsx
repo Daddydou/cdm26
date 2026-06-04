@@ -20,6 +20,8 @@ type Match = {
   away_team: string
   kickoff_at: string
   status: string
+  score_a: number | null
+  score_b: number | null
 }
 
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
@@ -101,7 +103,7 @@ export default async function HomePage() {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [usersRes, picksRes, matchesRes, meRes] = await Promise.all([
+  const [usersRes, picksRes, matchesRes, recentMatchesRes, meRes] = await Promise.all([
     supabase
       .from('cdm_users')
       .select('id, auth_id, username, photo_url, total_points')
@@ -114,9 +116,16 @@ export default async function HomePage() {
 
     supabase
       .from('cdm_matches')
-      .select('id, home_team, away_team, kickoff_at, status')
+      .select('id, home_team, away_team, kickoff_at, status, score_a, score_b')
       .eq('status', 'a_venir')
       .order('kickoff_at', { ascending: true })
+      .limit(3),
+
+    supabase
+      .from('cdm_matches')
+      .select('id, home_team, away_team, kickoff_at, status, score_a, score_b')
+      .in('status', ['termine', 'en_cours'])
+      .order('kickoff_at', { ascending: false })
       .limit(3),
 
     user
@@ -130,6 +139,7 @@ export default async function HomePage() {
 
   const cdmUsers: CdmUser[] = usersRes.data ?? []
   const upcomingMatches: Match[] = matchesRes.data ?? []
+  const recentMatches: Match[] = recentMatchesRes.data ?? []
   const me = meRes.data
 
   // Nombre de matchs joués par user_id
@@ -184,8 +194,8 @@ export default async function HomePage() {
                   className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden"
                 >
                   <div className="px-4 pt-3.5 pb-3 flex items-center justify-between gap-3">
-                    {/* Équipes */}
-                    <div className="flex-1 min-w-0">
+                    {/* Équipes — cliquable vers la page du match */}
+                    <Link href={`/match/${match.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xl leading-none">{getFlag(match.home_team)}</span>
                         <span className="text-sm font-semibold text-zinc-100 truncate max-w-[90px]">
@@ -200,7 +210,7 @@ export default async function HomePage() {
                       <p className="text-[11px] text-zinc-500 mt-1 capitalize">
                         {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
                       </p>
-                    </div>
+                    </Link>
 
                     {/* CTA */}
                     <Link
@@ -218,6 +228,39 @@ export default async function HomePage() {
             </div>
           )}
         </section>
+
+        {/* ── Résultats récents ── */}
+        {recentMatches.length > 0 && (
+          <section>
+            <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+              Résultats récents
+            </h2>
+            <div className="space-y-2">
+              {recentMatches.map(match => (
+                <Link
+                  key={match.id}
+                  href={`/match/${match.id}`}
+                  className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl px-4 py-3 transition-colors"
+                >
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-lg leading-none">{getFlag(match.home_team)}</span>
+                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.home_team}</span>
+                    <span className="text-sm font-bold text-zinc-300 tabular-nums px-1">
+                      {match.score_a ?? '?'} - {match.score_b ?? '?'}
+                    </span>
+                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.away_team}</span>
+                    <span className="text-lg leading-none">{getFlag(match.away_team)}</span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${
+                    match.status === 'termine' ? 'bg-zinc-800 text-zinc-500' : 'bg-orange-950 text-orange-400'
+                  }`}>
+                    {match.status === 'termine' ? 'Terminé' : 'En cours'}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── Classement général ── */}
         <section>

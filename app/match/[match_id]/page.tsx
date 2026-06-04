@@ -1,0 +1,377 @@
+import { createClient } from '@/lib/supabase/server'
+import { notFound } from 'next/navigation'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import Link from 'next/link'
+import Image from 'next/image'
+
+// ─── Helpers drapeaux ─────────────────────────────────────────────────────────
+
+function isoFlag(code: string) {
+  return code.toUpperCase().replace(/./g, c =>
+    String.fromCodePoint(c.charCodeAt(0) + 127397)
+  )
+}
+const FLAGS: Record<string, string> = {
+  'France': isoFlag('FR'), 'Brésil': isoFlag('BR'), 'Bresil': isoFlag('BR'),
+  'Argentine': isoFlag('AR'), 'Espagne': isoFlag('ES'), 'Angleterre': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  'Allemagne': isoFlag('DE'), 'Portugal': isoFlag('PT'), 'Italie': isoFlag('IT'),
+  'États-Unis': isoFlag('US'), 'Etats-Unis': isoFlag('US'), 'USA': isoFlag('US'),
+  'Mexique': isoFlag('MX'), 'Canada': isoFlag('CA'), 'Maroc': isoFlag('MA'),
+  'Japon': isoFlag('JP'), 'Corée du Sud': isoFlag('KR'), 'Australie': isoFlag('AU'),
+  'Pays-Bas': isoFlag('NL'), 'Belgique': isoFlag('BE'), 'Croatie': isoFlag('HR'),
+  'Suisse': isoFlag('CH'), 'Pologne': isoFlag('PL'), 'Serbie': isoFlag('RS'),
+  'Danemark': isoFlag('DK'), 'Ukraine': isoFlag('UA'), 'Turquie': isoFlag('TR'),
+  'Türkiye': isoFlag('TR'), 'Sénégal': isoFlag('SN'), 'Uruguay': isoFlag('UY'),
+  'Colombie': isoFlag('CO'), 'Équateur': isoFlag('EC'), 'Pérou': isoFlag('PE'),
+  'Chili': isoFlag('CL'), 'Nigeria': isoFlag('NG'), 'Cameroun': isoFlag('CM'),
+  'Maroc': isoFlag('MA'), 'Tunisie': isoFlag('TN'), 'Algérie': isoFlag('DZ'),
+  'Brazil': isoFlag('BR'), 'Argentina': isoFlag('AR'), 'Spain': isoFlag('ES'),
+  'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Germany': isoFlag('DE'), 'Italy': isoFlag('IT'),
+  'Netherlands': isoFlag('NL'), 'Belgium': isoFlag('BE'), 'Croatia': isoFlag('HR'),
+  'Morocco': isoFlag('MA'), 'Japan': isoFlag('JP'), 'South Korea': isoFlag('KR'),
+  'United States': isoFlag('US'), 'Mexico': isoFlag('MX'),
+}
+function getFlag(name: string) { return FLAGS[name] ?? '⚽' }
+
+// ─── Bonus meta ───────────────────────────────────────────────────────────────
+
+const BONUS_META: Record<string, { icon: string; name: string }> = {
+  double_mise:     { icon: '⚡', name: 'Double Mise' },
+  troisieme_homme: { icon: '👤', name: 'Troisième Homme' },
+  bouclier:        { icon: '🛡️', name: 'Bouclier' },
+  sniper:          { icon: '🎯', name: 'Sniper' },
+  passeur_genie:   { icon: '🎪', name: 'Passeur de Génie' },
+  mur:             { icon: '🧱', name: 'Mur' },
+  capitaine_bis:   { icon: '👑', name: 'Capitaine Bis' },
+  espion:          { icon: '🕵️', name: 'Espion' },
+  all_in:          { icon: '🎲', name: 'All-In' },
+}
+
+const MEDALS = ['🥇', '🥈', '🥉']
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type PlayerInfo = { id: string; name: string; position: string }
+type PickRow = {
+  id: string
+  points_finaux: number | null
+  bonus_type: string | null
+  bonus_player_id: string | null
+  player_a1_id: string | null
+  player_a2_id: string | null
+  player_b1_id: string | null
+  player_b2_id: string | null
+  user: { id: string; auth_id: string; username: string; photo_url: string | null } | null
+}
+
+// ─── PickCard ─────────────────────────────────────────────────────────────────
+
+function PickCard({
+  pick, rank, playerById, ratingByPlayer, highlight,
+}: {
+  pick: PickRow
+  rank: number
+  playerById: Map<string, PlayerInfo>
+  ratingByPlayer: Map<string, number>
+  highlight: boolean
+}) {
+  const u = pick.user
+  const playerIds = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
+    .filter(Boolean) as string[]
+  const bonus = pick.bonus_type ? BONUS_META[pick.bonus_type] : null
+
+  return (
+    <div className={[
+      'rounded-xl border p-3.5 space-y-2',
+      highlight
+        ? 'bg-green-950/15 border-green-700/50'
+        : 'bg-zinc-900 border-zinc-800',
+    ].join(' ')}>
+
+      {/* Ligne 1 : rang + avatar + pseudo + points */}
+      <div className="flex items-center gap-2.5">
+        <div className="w-7 flex-shrink-0 text-center">
+          {rank <= 3
+            ? <span className="text-base leading-none">{MEDALS[rank - 1]}</span>
+            : <span className="text-xs text-zinc-600 font-mono tabular-nums">{rank}</span>
+          }
+        </div>
+
+        <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-semibold text-zinc-500">
+          {u?.photo_url
+            ? <Image src={u.photo_url} alt={u.username} width={28} height={28} className="object-cover w-full h-full" />
+            : u?.username?.[0]?.toUpperCase() ?? '?'
+          }
+        </div>
+
+        <span className={`flex-1 text-sm font-semibold truncate ${highlight ? 'text-green-400' : 'text-zinc-100'}`}>
+          {u?.username ?? 'Anonyme'}
+          {highlight && <span className="ml-1.5 text-[10px] text-zinc-600 font-normal">moi</span>}
+        </span>
+
+        <div className="flex-shrink-0 text-right">
+          {pick.points_finaux != null
+            ? <span className="text-sm font-bold text-green-400 tabular-nums">{pick.points_finaux} pts</span>
+            : <span className="text-xs text-zinc-600">—</span>
+          }
+        </div>
+      </div>
+
+      {/* Ligne 2 : joueurs avec notes */}
+      <div className="flex flex-wrap gap-1.5 pl-[47px]">
+        {playerIds.map(id => {
+          const p = playerById.get(id)
+          if (!p) return <span key={id} className="text-[10px] text-zinc-600">?</span>
+          const rating = ratingByPlayer.get(id)
+          const isStar = id === pick.bonus_player_id
+          return (
+            <span key={id} className={[
+              'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
+              isStar
+                ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
+                : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
+            ].join(' ')}>
+              {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
+              <span className="truncate max-w-[72px]">{p.name}</span>
+              {rating != null
+                ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
+                : <span className="text-zinc-600 text-[10px]">–</span>
+              }
+            </span>
+          )
+        })}
+      </div>
+
+      {/* Ligne 3 : bonus activé */}
+      {bonus && (
+        <div className="pl-[47px]">
+          <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
+            {bonus.icon} {bonus.name}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default async function MatchPage({ params }: { params: { match_id: string } }) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [matchRes, picksRes, ratingsRes, meRes] = await Promise.all([
+    supabase
+      .from('cdm_matches')
+      .select(`
+        id, kickoff_at, status, score_a, score_b, phase, multiplier,
+        home_nation:nation_a_id ( id, name ),
+        away_nation:nation_b_id ( id, name )
+      `)
+      .eq('id', params.match_id)
+      .single(),
+
+    supabase
+      .from('cdm_picks')
+      .select(`
+        id, points_finaux, bonus_type, bonus_player_id,
+        player_a1_id, player_a2_id, player_b1_id, player_b2_id,
+        user:user_id ( id, auth_id, username, photo_url )
+      `)
+      .eq('match_id', params.match_id)
+      .order('points_finaux', { ascending: false, nullsFirst: false }),
+
+    supabase
+      .from('cdm_player_ratings')
+      .select('player_id, rating')
+      .eq('match_id', params.match_id),
+
+    user
+      ? supabase.from('cdm_users').select('id, auth_id').eq('auth_id', user.id).single()
+      : Promise.resolve({ data: null, error: null }),
+  ])
+
+  if (!matchRes.data) notFound()
+
+  const match = matchRes.data
+  const picks: PickRow[] = (picksRes.data ?? []) as PickRow[]
+  const homeNation = match.home_nation as { id: string; name: string } | null
+  const awayNation = match.away_nation as { id: string; name: string } | null
+  const me = meRes.data
+
+  // Batch-fetch tous les joueurs référencés
+  const allPlayerIds = [...new Set(
+    picks.flatMap(p =>
+      [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id, p.bonus_player_id]
+        .filter(Boolean) as string[]
+    )
+  )]
+
+  const playersData = allPlayerIds.length > 0
+    ? (await supabase.from('cdm_players').select('id, name, position').in('id', allPlayerIds)).data ?? []
+    : []
+
+  const playerById = new Map<string, PlayerInfo>(playersData.map(p => [p.id, p]))
+  const ratingByPlayer = new Map<string, number>(
+    (ratingsRes.data ?? []).map(r => [r.player_id, r.rating])
+  )
+
+  const isUpcoming = match.status === 'a_venir'
+  const isOngoing  = match.status === 'en_cours'
+  const isFinished = match.status === 'termine'
+
+  const myPick = picks.find(p => (p.user as any)?.auth_id === user?.id) ?? null
+  const rankedPicks = [...picks].sort((a, b) => (b.points_finaux ?? -999) - (a.points_finaux ?? -999))
+  const myRank = myPick ? rankedPicks.findIndex(p => p.id === myPick.id) + 1 : 0
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-20 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/60">
+        <div className="max-w-lg mx-auto px-4 py-3 space-y-1.5">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0">
+              ← Retour
+            </Link>
+            <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+              <span className="text-xl leading-none">{getFlag(homeNation?.name ?? '')}</span>
+              <span className="text-sm font-bold text-zinc-100 truncate max-w-[75px]">{homeNation?.name}</span>
+              <span className="text-sm font-bold text-zinc-400 px-0.5 tabular-nums">
+                {isFinished || isOngoing
+                  ? `${match.score_a ?? '?'} - ${match.score_b ?? '?'}`
+                  : <span className="text-[10px] text-zinc-600">VS</span>
+                }
+              </span>
+              <span className="text-sm font-bold text-zinc-100 truncate max-w-[75px]">{awayNation?.name}</span>
+              <span className="text-xl leading-none">{getFlag(awayNation?.name ?? '')}</span>
+            </div>
+            <span className={[
+              'text-[10px] px-2 py-1 rounded-full font-semibold flex-shrink-0',
+              isFinished ? 'bg-zinc-800 text-zinc-500'
+                : isOngoing ? 'bg-orange-950 text-orange-400'
+                : 'bg-green-950 text-green-500',
+            ].join(' ')}>
+              {isFinished ? 'Terminé' : isOngoing ? 'En cours' : 'À venir'}
+            </span>
+          </div>
+          <div className="text-center space-y-0.5">
+            <p className="text-[11px] text-zinc-500 capitalize">
+              {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
+            </p>
+            {(match.phase || (match.multiplier && match.multiplier !== 1)) && (
+              <p className="text-[10px] text-zinc-600">
+                {match.phase}
+                {match.multiplier && match.multiplier !== 1 && ` • ×${match.multiplier}`}
+              </p>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-lg mx-auto px-4 py-6 space-y-6 pb-10">
+
+        {/* ── À venir ── */}
+        {isUpcoming && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-8 text-center space-y-3">
+            <p className="text-3xl">📅</p>
+            <p className="text-sm font-medium text-zinc-300">Ce match n&apos;a pas encore eu lieu</p>
+            {!myPick && (
+              <Link
+                href={`/pick/${match.id}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Faire mes picks →
+              </Link>
+            )}
+            {myPick && (
+              <Link
+                href={`/pick/${match.id}`}
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                Modifier mes picks
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* ── En cours ── */}
+        {isOngoing && (
+          <div className="bg-orange-950/20 border border-orange-800/30 rounded-2xl px-5 py-6 text-center space-y-2">
+            <p className="text-3xl">⚽</p>
+            <p className="text-sm font-semibold text-orange-300">Match en cours</p>
+            <p className="text-xs text-zinc-500">Les résultats seront disponibles après le match</p>
+          </div>
+        )}
+
+        {/* ── Mes picks (mis en évidence) ── */}
+        {myPick && (isFinished || isOngoing) && (
+          <section>
+            <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+              Mes picks
+            </h2>
+            <PickCard
+              pick={myPick}
+              rank={myRank}
+              playerById={playerById}
+              ratingByPlayer={ratingByPlayer}
+              highlight
+            />
+          </section>
+        )}
+
+        {/* ── Classement du match ── */}
+        {(isFinished || isOngoing) && rankedPicks.length > 0 && (
+          <section>
+            <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+              Classement du match
+            </h2>
+            <div className="space-y-2">
+              {rankedPicks.map((pick, i) => (
+                <PickCard
+                  key={pick.id}
+                  pick={pick}
+                  rank={i + 1}
+                  playerById={playerById}
+                  ratingByPlayer={ratingByPlayer}
+                  highlight={false}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Aucun pick ── */}
+        {(isFinished || isOngoing) && rankedPicks.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-sm text-zinc-500">Aucun pick enregistré pour ce match</p>
+          </div>
+        )}
+
+        {/* ── Picks déposés si a_venir ── */}
+        {isUpcoming && picks.length > 0 && (
+          <section>
+            <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+              {picks.length} participant{picks.length > 1 ? 's' : ''} inscrit{picks.length > 1 ? 's' : ''}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {picks.map(p => (
+                <div key={p.id} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5">
+                  <div className="w-5 h-5 rounded-full bg-zinc-700 flex-shrink-0 flex items-center justify-center text-[9px] text-zinc-400 font-semibold overflow-hidden">
+                    {(p.user as any)?.photo_url
+                      ? <Image src={(p.user as any).photo_url} alt="" width={20} height={20} className="object-cover w-full h-full" />
+                      : (p.user as any)?.username?.[0]?.toUpperCase()
+                    }
+                  </div>
+                  <span className="text-xs text-zinc-400">{(p.user as any)?.username ?? '?'}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+      </main>
+    </div>
+  )
+}
