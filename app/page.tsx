@@ -18,7 +18,7 @@ type Match = {
   id: string
   home_team: string
   away_team: string
-  match_date: string
+  kickoff_at: string
   status: string
 }
 
@@ -114,9 +114,9 @@ export default async function HomePage() {
 
     supabase
       .from('cdm_matches')
-      .select('id, home_team, away_team, match_date, status')
+      .select('id, home_team, away_team, kickoff_at, status')
       .eq('status', 'a_venir')
-      .order('match_date', { ascending: true })
+      .order('kickoff_at', { ascending: true })
       .limit(3),
 
     user
@@ -198,7 +198,7 @@ export default async function HomePage() {
                         <span className="text-xl leading-none">{getFlag(match.away_team)}</span>
                       </div>
                       <p className="text-[11px] text-zinc-500 mt-1 capitalize">
-                        {format(new Date(match.match_date), "EEEE d MMMM · HH'h'mm", { locale: fr })}
+                        {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
                       </p>
                     </div>
 

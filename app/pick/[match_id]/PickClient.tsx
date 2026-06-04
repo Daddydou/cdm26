@@ -22,7 +22,7 @@ type NationInfo = { id: string; name: string }
 
 type MatchData = {
   id: string
-  match_date: string
+  kickoff_at: string
   status: string
   home_nation: NationInfo
   away_nation: NationInfo
@@ -301,7 +301,7 @@ export default function PickClient({
           </span>
         </div>
         <div className="text-center text-[11px] text-zinc-600 pb-2 capitalize">
-          {format(new Date(match.match_date), "EEEE d MMMM · HH'h'mm", { locale: fr })}
+          {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
         </div>
       </header>
 

@@ -28,13 +28,13 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   // 1. Vérifier que le match est encore ouvert
   const { data: match } = await supabase
     .from('cdm_matches')
-    .select('status, match_date, nation_a_id, nation_b_id')
+    .select('status, kickoff_at, nation_a_id, nation_b_id')
     .eq('id', matchId)
     .single()
 
   if (!match) return { error: 'Match introuvable' }
   if (match.status !== 'a_venir') return { error: 'Les picks sont fermés pour ce match' }
-  if (new Date(match.match_date) <= new Date()) return { error: 'Ce match a déjà commencé' }
+  if (new Date(match.kickoff_at) <= new Date()) return { error: 'Ce match a déjà commencé' }
 
   // 2. Profil CDM de l'utilisateur
   const { data: cdmUser } = await supabase

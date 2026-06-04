@@ -14,7 +14,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
   const { data: match, error: matchError } = await supabase
     .from('cdm_matches')
     .select(`
-      id, match_date, status,
+      id, kickoff_at, status,
       home_nation:nation_a_id ( id, name ),
       away_nation:nation_b_id ( id, name )
     `)
@@ -88,9 +88,9 @@ export default async function PickPage({ params }: { params: { match_id: string 
   const usedPlayerIds: string[] = (usedRes.data ?? []).map((r: { player_id: string }) => r.player_id)
 
   const isReadOnly =
-    match.status !== 'a_venir' || new Date(match.match_date) <= new Date()
+    match.status !== 'a_venir' || new Date(match.kickoff_at) <= new Date()
 
-  console.log('[pick/page] isReadOnly:', isReadOnly, '| status:', match.status, '| match_date:', match.match_date)
+  console.log('[pick/page] isReadOnly:', isReadOnly, '| status:', match.status, '| kickoff_at:', match.kickoff_at)
 
   return (
     <PickClient
