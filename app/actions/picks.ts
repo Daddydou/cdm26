@@ -11,15 +11,15 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
-  const matchId     = formData.get('match_id')     as string
-  const homePlayer1 = formData.get('home_player1') as string
-  const homePlayer2 = formData.get('home_player2') as string
-  const awayPlayer1 = formData.get('away_player1') as string
-  const awayPlayer2 = formData.get('away_player2') as string
-  const homeSub     = (formData.get('home_sub')        as string) || null
-  const awaySub     = (formData.get('away_sub')        as string) || null
-  const starPlayer  = (formData.get('star_player')     as string) || null
-  const bonusId     = (formData.get('active_bonus_id') as string) || null
+  const matchId     = formData.get('match_id')        as string
+  const homePlayer1 = formData.get('player_a1_id')    as string
+  const homePlayer2 = formData.get('player_a2_id')    as string
+  const awayPlayer1 = formData.get('player_b1_id')    as string
+  const awayPlayer2 = formData.get('player_b2_id')    as string
+  const homeSub     = (formData.get('sub_a_id')        as string) || null
+  const awaySub     = (formData.get('sub_b_id')        as string) || null
+  const starPlayer  = (formData.get('bonus_player_id') as string) || null
+  const bonusId     = (formData.get('bonus_type')      as string) || null
 
   if (!homePlayer1 || !homePlayer2 || !awayPlayer1 || !awayPlayer2) {
     return { error: 'Sélectionnez 2 joueurs par équipe avant de valider' }

@@ -89,15 +89,15 @@ const POS_SECTION: Record<string, string> = {
 
 // ─── Submit button ─────────────────────────────────────────────────────────────
 
-function SubmitButton({ canSubmit }: { canSubmit: boolean }) {
+function SubmitButton() {
   const { pending } = useFormStatus()
   return (
     <button
       type="submit"
-      disabled={!canSubmit || pending}
-      className="w-full py-3.5 bg-green-600 hover:bg-green-500 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors text-sm"
+      disabled={pending}
+      className="w-full py-4 bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors text-sm tracking-wide shadow-lg shadow-green-900/40"
     >
-      {pending ? 'Enregistrement…' : canSubmit ? 'Valider mes picks ✓' : 'Sélectionnez 2 joueurs par équipe'}
+      {pending ? 'Enregistrement…' : 'Valider mes picks ✓'}
     </button>
   )
 }
@@ -308,16 +308,16 @@ export default function PickClient({
       <form action={isReadOnly ? undefined : formAction}>
         {/* Inputs cachés */}
         <input type="hidden" name="match_id"        value={match.id} />
-        <input type="hidden" name="home_player1"    value={homeSelected[0] ?? ''} />
-        <input type="hidden" name="home_player2"    value={homeSelected[1] ?? ''} />
-        <input type="hidden" name="away_player1"    value={awaySelected[0] ?? ''} />
-        <input type="hidden" name="away_player2"    value={awaySelected[1] ?? ''} />
-        <input type="hidden" name="home_sub"        value={homeSub ?? ''} />
-        <input type="hidden" name="away_sub"        value={awaySub ?? ''} />
-        <input type="hidden" name="star_player"     value={starPlayer ?? ''} />
-        <input type="hidden" name="active_bonus_id" value={activeBonus ?? ''} />
+        <input type="hidden" name="player_a1_id"    value={homeSelected[0] ?? ''} />
+        <input type="hidden" name="player_a2_id"    value={homeSelected[1] ?? ''} />
+        <input type="hidden" name="player_b1_id"    value={awaySelected[0] ?? ''} />
+        <input type="hidden" name="player_b2_id"    value={awaySelected[1] ?? ''} />
+        <input type="hidden" name="sub_a_id"        value={homeSub ?? ''} />
+        <input type="hidden" name="sub_b_id"        value={awaySub ?? ''} />
+        <input type="hidden" name="bonus_player_id" value={starPlayer ?? ''} />
+        <input type="hidden" name="bonus_type"      value={activeBonus ?? ''} />
 
-        <main className="max-w-2xl mx-auto px-3 py-4 space-y-5 pb-8">
+        <main className={`max-w-2xl mx-auto px-3 py-4 space-y-5 ${canSubmit && !isReadOnly ? 'pb-28' : 'pb-8'}`}>
 
           {/* ── Grille deux colonnes ── */}
           <div className="grid grid-cols-2 gap-3">
@@ -421,16 +421,7 @@ export default function PickClient({
             </div>
           )}
 
-          {/* ── Erreur ── */}
-          {state?.error && (
-            <div className="bg-red-950/40 border border-red-800/40 rounded-lg px-4 py-3">
-              <p className="text-red-400 text-sm">{state.error}</p>
-            </div>
-          )}
-
-          {/* ── Submit ── */}
-          {!isReadOnly && <SubmitButton canSubmit={canSubmit} />}
-
+          {/* ── Lecture seule ── */}
           {isReadOnly && (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-center">
               <p className="text-xs text-zinc-500">
@@ -442,6 +433,19 @@ export default function PickClient({
           )}
 
         </main>
+
+        {/* ── Footer fixe — bouton de validation ── */}
+        {!isReadOnly && canSubmit && (
+          <div className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/80 px-4 pt-3 pb-5">
+            <div className="max-w-2xl mx-auto space-y-2">
+              {state?.error && (
+                <p className="text-red-400 text-xs text-center">{state.error}</p>
+              )}
+              <SubmitButton />
+            </div>
+          </div>
+        )}
+
       </form>
     </div>
   )
