@@ -94,7 +94,7 @@ export default async function HomePage() {
     user
       ? supabase
           .from('cdm_users')
-          .select('id, photo_url, username')
+          .select('id, photo_url, username, is_admin')
           .eq('auth_id', user.id)
           .single()
       : Promise.resolve({ data: null, error: null }),
@@ -144,6 +144,14 @@ export default async function HomePage() {
 
           {me && (
             <div className="flex items-center gap-2">
+              {(me as { is_admin?: boolean }).is_admin && (
+                <Link
+                  href="/admin"
+                  className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded-md hover:bg-zinc-800/60"
+                >
+                  ⚙️
+                </Link>
+              )}
               <NotificationButton />
               <Link href={`/profil/${me.id}`} className="flex items-center gap-2.5 group">
                 <span className="text-xs text-zinc-400 group-hover:text-zinc-300 transition-colors hidden sm:block">
