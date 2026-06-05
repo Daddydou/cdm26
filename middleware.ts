@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PUBLIC_PATHS = ['/connexion', '/inscription']
+// Ces routes passent toujours sans redirect, même si l'user est connecté
+const BYPASS_PATHS = ['/auth/callback']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -31,6 +33,12 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+
+  // /auth/callback doit toujours s'exécuter sans interférence
+  if (BYPASS_PATHS.some(p => pathname.startsWith(p))) {
+    return supabaseResponse
+  }
+
   const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
 
   console.log('[middleware]', pathname, '|', user ? `connecté (${user.email})` : 'non connecté', '|', isPublic ? 'public' : 'protégé')

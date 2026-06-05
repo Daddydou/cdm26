@@ -133,6 +133,89 @@ export async function signIn(prevState: AuthState, formData: FormData): Promise<
   redirect('/')
 }
 
+// ─── Magic link ───────────────────────────────────────────────────────────────
+
+export async function signInWithMagicLink(email: string): Promise<{ error?: string }> {
+  const supabase = createClient()
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+  })
+
+  if (error) return { error: error.message }
+  return {}
+}
+
+// ─── Compléter le profil après magic link ────────────────────────────────────
+
+export async function completeProfile(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const supabase = createClient()
+  const admin    = (await import('@/lib/supabase/admin')).createAdminClient()
+
+  const authId    = formData.get('auth_id') as string
+  const email     = formData.get('email')    as string
+  const username  = (formData.get('username') as string)?.trim()
+  const groupCode = (formData.get('group_code') as string)?.toUpperCase().trim()
+  const photoFile = formData.get('photo') as File | null
+
+  if (!username || !groupCode) return { error: 'Pseudo et code de groupe obligatoires' }
+
+  // 1. Code de groupe
+  const { data: group, error: groupErr } = await supabase
+    .from('cdm_groups')
+    .select('id')
+    .eq('code', groupCode)
+    .single()
+
+  if (groupErr || !group) return { error: 'Code de groupe invalide' }
+
+  // 2. Photo (optionnelle)
+  let photoUrl: string | null = null
+  if (photoFile && photoFile.size > 0) {
+    try {
+      const ext      = photoFile.name.split('.').pop()
+      const fileName = `${authId}.${ext}`
+      const bytes    = await photoFile.arrayBuffer()
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from('cdm-avatars')
+        .upload(fileName, bytes, { contentType: photoFile.type, upsert: true })
+      if (!uploadErr && uploadData) {
+        photoUrl = supabase.storage.from('cdm-avatars').getPublicUrl(uploadData.path).data.publicUrl
+      }
+    } catch { /* photo non bloquante */ }
+  }
+
+  // 3. Insérer dans cdm_users
+  const isAdmin = email === 'lolo.rms@gmail.com'
+  const { data: cdmUser, error: cdmErr } = await admin
+    .from('cdm_users')
+    .insert({ auth_id: authId, username, photo_url: photoUrl, is_admin: isAdmin })
+    .select('id')
+    .single()
+
+  if (cdmErr) {
+    if (cdmErr.code === '23505') return { error: 'Ce pseudo est déjà pris' }
+    return { error: 'Erreur lors de la création du profil' }
+  }
+
+  // 4. Groupe
+  const { error: memberErr } = await admin
+    .from('cdm_group_members')
+    .insert({ group_id: group.id, user_id: cdmUser.id })
+
+  if (memberErr) return { error: "Erreur lors de l'ajout au groupe" }
+
+  // 5. Initialise les bonus (RPC optionnelle)
+  try {
+    await admin.rpc('init_user_bonuses', { p_user_id: cdmUser.id })
+  } catch { /* RPC absente → pas bloquant */ }
+
+  redirect('/')
+}
+
 export async function signOut(): Promise<void> {
   const supabase = createClient()
   await supabase.auth.signOut()

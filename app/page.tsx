@@ -4,6 +4,7 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import NotificationButton from './components/NotificationButton'
+import { redirect } from 'next/navigation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,9 @@ export default async function HomePage() {
   const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
   const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
   const me = meRes.data
+
+  // Utilisateur connecté sans profil → compléter l'inscription
+  if (user && !me) redirect('/inscription/completer')
 
   // Picks de l'utilisateur (matchs à venir + récents)
   let userPickedMatchIds = new Set<string>()
