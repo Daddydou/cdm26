@@ -38,7 +38,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
   console.log('[pick/page] 2. cdmUser:', cdmUser, '| error:', cdmUserError?.message)
 
   // 3. Requêtes parallèles
-  const [playersRes, pickRes, usedRes, bonusRes] = await Promise.all([
+  const [playersRes, pickRes, usedRes, bonusRes, x15Res] = await Promise.all([
     supabase
       .from('cdm_players')
       .select('id, name, position, photo_url, nation_id')
@@ -69,6 +69,15 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .eq('user_id', cdmUser.id)
           .gt('remaining_uses', 0)
       : Promise.resolve({ data: [], error: null }),
+
+    // Nombre de picks passés où l'user a désigné un joueur ×1.5
+    cdmUser
+      ? supabase
+          .from('cdm_picks')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', cdmUser.id)
+          .not('bonus_player_id', 'is', null)
+      : Promise.resolve({ count: 0, data: null, error: null }),
   ])
 
   console.log('[pick/page] 3a. players count:', playersRes.data?.length, '| error:', playersRes.error?.message)
@@ -106,6 +115,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
       usedPlayerIds={usedPlayerIds}
       userBonuses={bonusRes.data ?? []}
       isReadOnly={isReadOnly}
+      x15Used={x15Res.count ?? 0}
     />
   )
 }

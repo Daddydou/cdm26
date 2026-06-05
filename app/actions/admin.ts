@@ -36,7 +36,7 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
   const { data: picks, error: picksError } = await admin
     .from('cdm_picks')
     .select(`
-      id, user_id, bonus_type, bonus_player_id,
+      id, user_id, bonus_type, bonus_player_id, bonus_data,
       player_a1_id, player_a2_id, player_b1_id, player_b2_id,
       user:cdm_users!user_id ( id, username )
     `)
@@ -45,63 +45,128 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
   if (picksError) return { error: picksError.message, computed: [] }
   if (!picks || picks.length === 0) return { error: null, computed: [] }
 
+  // Collecte tous les IDs joueurs + le 3e homme si troisieme_homme
   const allPlayerIds = [...new Set(
-    picks.flatMap(p => [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id]
-      .filter(Boolean) as string[])
+    picks.flatMap(p => {
+      const ids: string[] = [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id]
+        .filter(Boolean) as string[]
+      if (p.bonus_type === 'troisieme_homme') {
+        const bd = p.bonus_data as { player_id?: string } | null
+        if (bd?.player_id) ids.push(bd.player_id)
+      }
+      return ids
+    })
   )]
 
   const { data: ratingsData, error: ratingsError } = await admin
     .from('cdm_player_ratings')
-    .select('player_id, fotmob_rating')
+    .select('player_id, fotmob_rating, goals, assists, penalty_saved')
     .eq('match_id', matchId)
     .in('player_id', allPlayerIds)
 
   if (ratingsError) return { error: ratingsError.message, computed: [] }
 
-  const ratingsMap: Record<string, number> = Object.fromEntries(
-    (ratingsData ?? []).map(r => [r.player_id, r.fotmob_rating ?? 0])
+  type RatingFull = { fotmob_rating: number; goals: number; assists: number; penalty_saved: boolean }
+  const ratingsMap: Record<string, RatingFull> = Object.fromEntries(
+    (ratingsData ?? []).map(r => [r.player_id, {
+      fotmob_rating: r.fotmob_rating ?? 0,
+      goals:         (r.goals as number)         ?? 0,
+      assists:       (r.assists as number)        ?? 0,
+      penalty_saved: (r.penalty_saved as boolean) ?? false,
+    }])
   )
+
+  // ── Passe 1 : calcul points_bruts (sans all_in) ───────────────────────────
+  type Calc = { pick: typeof picks[0]; points_bruts: number; isAllIn: boolean; mise: number }
+  const calcs: Calc[] = []
+
+  for (const pick of picks) {
+    const bd              = pick.bonus_data as Record<string, unknown> | null
+    const bonusPlayerId   = pick.bonus_player_id
+    const isBouclier      = pick.bonus_type === 'bouclier'
+    const isCapitaineBis  = pick.bonus_type === 'capitaine_bis'
+    const isDoubleMise    = pick.bonus_type === 'double_mise'
+    const isSniper        = pick.bonus_type === 'sniper'
+    const isPasseur       = pick.bonus_type === 'passeur_genie'
+    const isMur           = pick.bonus_type === 'mur'
+    const isAllIn         = pick.bonus_type === 'all_in'
+
+    let ids: string[] = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
+      .filter(Boolean) as string[]
+
+    if (pick.bonus_type === 'troisieme_homme' && bd?.player_id) {
+      ids = [...ids, bd.player_id as string]
+    }
+
+    let total      = 0
+    let hasGoal    = false
+    let hasAssist  = false
+    let hasPenSave = false
+
+    for (const id of ids) {
+      const r = ratingsMap[id]
+      let rating = r?.fotmob_rating ?? 0
+
+      if (isBouclier && rating < 5) rating = 5
+      if (id === bonusPlayerId)      rating *= isCapitaineBis ? 2 : 1.5
+
+      total += rating
+
+      if ((r?.goals ?? 0) > 0)   hasGoal    = true
+      if ((r?.assists ?? 0) > 0) hasAssist  = true
+      if (r?.penalty_saved)      hasPenSave = true
+    }
+
+    if (isSniper && hasGoal)    total += 3
+    if (isPasseur && hasAssist) total += 3
+    if (isMur && hasPenSave)    total += 5
+    if (isDoubleMise)           total *= 2
+
+    calcs.push({
+      pick,
+      points_bruts: Math.round(total * 100) / 100,
+      isAllIn,
+      mise: isAllIn ? Math.min(10, Math.max(1, Number(bd?.amount ?? 5))) : 0,
+    })
+  }
+
+  // ── Passe 2 : All-In (comparaison avec moyenne des autres) ────────────────
+  const nonAllInAvg = (() => {
+    const base = calcs.filter(c => !c.isAllIn)
+    if (base.length === 0) return 0
+    return base.reduce((sum, c) => sum + c.points_bruts, 0) / base.length
+  })()
 
   const computed: PickSummary[] = []
   const affectedUserIds = new Set<string>()
 
-  for (const pick of picks) {
-    const ids = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
-      .filter(Boolean) as string[]
+  for (const calc of calcs) {
+    let { points_bruts } = calc
 
-    const isBouclier    = pick.bonus_type === 'bouclier'
-    const isCapitaineBis = pick.bonus_type === 'capitaine_bis'
-    const isDoubleMise  = pick.bonus_type === 'double_mise'
-    const bonusPlayerId = pick.bonus_player_id
-
-    let total = 0
-    for (const id of ids) {
-      let rating = ratingsMap[id] ?? 0
-      if (isBouclier && rating < 5) rating = 5
-      if (id === bonusPlayerId) rating *= isCapitaineBis ? 2 : 1.5
-      total += rating
+    if (calc.isAllIn) {
+      points_bruts = calc.points_bruts > nonAllInAvg
+        ? Math.round((calc.points_bruts + calc.mise) * 100) / 100
+        : Math.round(Math.max(0, calc.points_bruts - calc.mise) * 100) / 100
     }
-    if (isDoubleMise) total *= 2
 
-    const points_bruts  = Math.round(total * 100) / 100
-    const points_finaux = Math.round(total * multiplier * 100) / 100
+    const points_finaux = Math.round(points_bruts * multiplier * 100) / 100
 
     const { error: updateError } = await admin
       .from('cdm_picks')
       .update({ points_bruts, points_finaux })
-      .eq('id', pick.id)
+      .eq('id', calc.pick.id)
 
     if (updateError) {
-      console.error('[computeMatchPoints] update pick error:', pick.id, updateError.message)
+      console.error('[computeMatchPoints] update pick error:', calc.pick.id, updateError.message)
       continue
     }
 
-    affectedUserIds.add(pick.user_id)
+    affectedUserIds.add(calc.pick.user_id)
     computed.push({
-      pick_id:       pick.id,
-      user_id:       pick.user_id,
+      pick_id:  calc.pick.id,
+      user_id:  calc.pick.user_id,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      username:      (pick.user as any)?.username ?? pick.user_id,
+      username: (calc.pick.user as any)?.username ?? calc.pick.user_id,
       points_bruts,
       points_finaux,
     })

@@ -194,7 +194,7 @@ function TeamSection({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PickClient({
-  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly,
+  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly, x15Used,
 }: {
   match: MatchData
   playersA: Player[]
@@ -203,6 +203,7 @@ export default function PickClient({
   usedPlayerIds: string[]
   userBonuses: BonusRecord[]
   isReadOnly: boolean
+  x15Used: number
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -256,7 +257,9 @@ export default function PickClient({
   function handleBonusChange(val: string) {
     setTroisHommePlayer(null)
     setTroisHommeTeam(null)
-    if (val !== 'star') setBonusPlayer(null)
+    const selectedBonusType = (userBonuses ?? []).find(ub => ub.id === val)?.bonus_type
+    // Conserve le joueur ×1.5 quand on bascule entre 'star' et 'capitaine_bis'
+    if (val !== 'star' && selectedBonusType !== 'capitaine_bis') setBonusPlayer(null)
     setActiveBonusId(val || null)
   }
 
@@ -357,13 +360,17 @@ export default function PickClient({
                 className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl px-3.5 py-3 text-sm appearance-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 transition-colors cursor-pointer pr-8"
               >
                 <option value="">Aucun bonus</option>
-                <option value="star">⭐ Joueur ×1.5 (toujours disponible)</option>
+                {(10 - x15Used) > 0 && (
+                  <option value="star">⭐ Joueur ×1.5 ({10 - x15Used}/10 restants)</option>
+                )}
                 {(userBonuses ?? []).map(ub => {
                   const meta = BONUS_META[ub.bonus_type]
+                  const max  = ub.bonus_type === 'double_mise' || ub.bonus_type === 'troisieme_homme' ? 4
+                             : ub.bonus_type === 'sniper'      || ub.bonus_type === 'passeur_genie'  ? 3 : 2
                   return (
                     <option key={ub.id} value={ub.id}>
                       {meta ? `${meta.icon} ${meta.name}` : ub.bonus_type}
-                      {' '}({ub.remaining_uses} restant{ub.remaining_uses > 1 ? 's' : ''})
+                      {' '}({ub.remaining_uses}/{max} restants)
                     </option>
                   )
                 })}
@@ -373,11 +380,11 @@ export default function PickClient({
               </div>
             </div>
 
-            {/* ── ⭐ Joueur ×1.5 — sélection parmi les 4 joueurs ── */}
-            {activeBonusId === 'star' && (
+            {/* ── ⭐ Joueur ×1.5 / 👑 Capitaine Bis — sélection parmi les 4 joueurs ── */}
+            {(activeBonusId === 'star' || activeBonusType === 'capitaine_bis') && (
               <div className="mt-3 bg-yellow-950/20 border border-yellow-800/30 rounded-xl p-4 space-y-3">
                 <p className="text-xs text-yellow-300 font-medium">
-                  Désignez le joueur dont la note sera ×1.5 :
+                  Désignez le joueur dont la note sera {activeBonusType === 'capitaine_bis' ? '×2' : '×1.5'} :
                 </p>
                 {canSubmit ? (
                   <div className="grid grid-cols-2 gap-2">
@@ -401,7 +408,7 @@ export default function PickClient({
                           <div className="flex-1 min-w-0">
                             <p className={`text-xs font-semibold truncate leading-tight ${isStar ? 'text-yellow-200' : 'text-zinc-300'}`}>{p.name}</p>
                             <p className={`text-[9px] mt-0.5 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
-                              {POS_LABEL[p.position]}{isStar && <span className="ml-1 text-yellow-400 font-bold">×1.5</span>}
+                              {POS_LABEL[p.position]}{isStar && <span className="ml-1 text-yellow-400 font-bold">{activeBonusType === 'capitaine_bis' ? '×2' : '×1.5'}</span>}
                             </p>
                           </div>
                         </button>
