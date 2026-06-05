@@ -148,8 +148,6 @@ function TeamSection({
   isReadOnly: boolean
   onToggle: (id: string) => void
 }) {
-  const sorted = [...players].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
-
   return (
     <section className="px-4 py-5 border-b border-zinc-800/50">
       <div className="flex items-center justify-between mb-4">
@@ -177,7 +175,7 @@ function TeamSection({
       </div>
 
       <div className="space-y-1.5">
-        {sorted.map(player => (
+        {players.map(player => (
           <PlayerCard
             key={player.id}
             player={player}
