@@ -432,8 +432,8 @@ export default function PickClient({
                 className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl px-3.5 py-3 text-sm appearance-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 transition-colors cursor-pointer pr-8"
               >
                 <option value="">Aucun bonus</option>
-                {(10 - x15Used) > 0 && (
-                  <option value="star">⭐ Joueur ×1.5 ({10 - x15Used}/10 restants)</option>
+                {(6 - x15Used) > 0 && (
+                  <option value="star">⭐ Joueur ×1.5 ({6 - x15Used}/6 restants)</option>
                 )}
                 {(userBonuses ?? []).map(ub => {
                   const meta = BONUS_META[ub.bonus_type]
