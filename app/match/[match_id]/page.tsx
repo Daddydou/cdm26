@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -178,7 +179,8 @@ function PickCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function MatchPage({ params }: { params: { match_id: string } }) {
-  const supabase = createClient()
+  const supabase      = createClient()
+  const supabaseAdmin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   const [matchRes, picksRes, meRes] = await Promise.all([
@@ -192,7 +194,8 @@ export default async function MatchPage({ params }: { params: { match_id: string
       .eq('id', params.match_id)
       .single(),
 
-    supabase
+    // Admin client pour bypasser RLS sur cdm_picks (picks visibles après lock)
+    supabaseAdmin
       .from('cdm_picks')
       .select(`
         id, points_finaux, bonus_type, bonus_player_id,

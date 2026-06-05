@@ -46,8 +46,9 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   console.log('[savePick] 1. match:', match, '| error:', matchError?.message)
 
   if (!match) return { error: 'Match introuvable' }
-  if (match.status !== 'a_venir') return { error: 'Les picks sont fermés pour ce match' }
-  if (new Date(match.kickoff_at) <= new Date()) return { error: 'Ce match a déjà commencé' }
+  if (match.status !== 'a_venir' || new Date(match.kickoff_at) <= new Date()) {
+    return { error: 'Ce match a déjà commencé, les picks sont fermés.' }
+  }
 
   // ── 2. Profil CDM (cdm_users.id, pas auth.uid) ──
   const { data: cdmUser, error: cdmUserError } = await supabase
