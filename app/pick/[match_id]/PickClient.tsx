@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { savePick } from '@/app/actions/picks'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
@@ -217,6 +218,8 @@ export default function PickClient({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [toast, setToast]   = useState<string | null>(null)
+  const router = useRouter()
 
   // Sélections principales
   const [selA, setSelA] = useState<string[]>(() =>
@@ -296,7 +299,12 @@ export default function PickClient({
       fd.set('bonus_data',      JSON.stringify(bonusData))
 
       const result = await savePick({ error: null }, fd)
-      if (result?.error) setError(result.error)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        setToast('Picks enregistrés ! Bonne chance 🎉')
+        setTimeout(() => router.push('/'), 2000)
+      }
     })
   }
 
@@ -304,6 +312,13 @@ export default function PickClient({
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
+
+      {/* ══ Toast succès ══ */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-green-700 text-white text-sm font-semibold px-6 py-3 rounded-xl shadow-lg shadow-green-900/40 animate-pulse">
+          ✓ {toast}
+        </div>
+      )}
 
       {/* ══ Header ══ */}
       <header className="sticky top-0 z-20 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/60">

@@ -21,6 +21,7 @@ type Match = {
   status: string
   score_a: number | null
   score_b: number | null
+  phase: string | null
   nation_a: { name: string; code: string } | null
   nation_b: { name: string; code: string } | null
 }
@@ -85,10 +86,10 @@ export default async function HomePage() {
 
     supabase
       .from('cdm_matches')
-      .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
+      .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
       .in('status', ['termine', 'en_cours'])
       .order('kickoff_at', { ascending: false })
-      .limit(5),
+      .limit(10),
 
     user
       ? supabase
@@ -108,14 +109,18 @@ export default async function HomePage() {
   const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
   const me = meRes.data
 
-  // Picks déjà effectués par l'utilisateur pour les prochains matchs
+  // Picks de l'utilisateur (matchs à venir + récents)
   let userPickedMatchIds = new Set<string>()
+  let pointsByMatch: Record<string, number | null> = {}
   if (me) {
     const { data: userPicks } = await supabase
       .from('cdm_picks')
-      .select('match_id')
+      .select('match_id, points_finaux')
       .eq('user_id', me.id)
     userPickedMatchIds = new Set(userPicks?.map(p => p.match_id) ?? [])
+    pointsByMatch = Object.fromEntries(
+      userPicks?.map(p => [p.match_id, p.points_finaux]) ?? []
+    )
   }
 
   // Nombre de matchs joués par user_id
@@ -237,35 +242,59 @@ export default async function HomePage() {
           })()}
         </section>
 
-        {/* ── Résultats récents ── */}
+        {/* ── Matchs récents ── */}
         {recentMatches.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
               Matchs récents
             </h2>
             <div className="space-y-2">
-              {recentMatches.map(match => (
-                <Link
-                  key={match.id}
-                  href={`/match/${match.id}`}
-                  className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl px-4 py-3 transition-colors"
-                >
-                  <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-lg leading-none">{iso(match.nation_a?.code ?? '')}</span>
-                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.nation_a?.name}</span>
-                    <span className="text-sm font-bold text-zinc-300 tabular-nums px-1">
-                      {match.score_a ?? '?'} - {match.score_b ?? '?'}
-                    </span>
-                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[80px]">{match.nation_b?.name}</span>
-                    <span className="text-lg leading-none">{iso(match.nation_b?.code ?? '')}</span>
-                  </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${
-                    match.status === 'termine' ? 'bg-zinc-800 text-zinc-500' : 'bg-orange-950 text-orange-400'
-                  }`}>
-                    {match.status === 'termine' ? 'Terminé' : 'En cours'}
-                  </span>
-                </Link>
-              ))}
+              {recentMatches.map(match => {
+                const pts    = pointsByMatch[match.id]
+                const picked = match.id in pointsByMatch
+                return (
+                  <Link
+                    key={match.id}
+                    href={`/match/${match.id}`}
+                    className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl px-4 py-3 transition-colors"
+                  >
+                    {/* Équipes + score */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-lg leading-none">{iso(match.nation_a?.code ?? '')}</span>
+                        <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{match.nation_a?.name}</span>
+                        <span className="text-sm font-bold text-zinc-300 tabular-nums px-1">
+                          {match.score_a ?? '?'} - {match.score_b ?? '?'}
+                        </span>
+                        <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{match.nation_b?.name}</span>
+                        <span className="text-lg leading-none">{iso(match.nation_b?.code ?? '')}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-[10px] text-zinc-600">
+                          {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "d MMM", { locale: fr })}
+                          {match.phase && ` · ${match.phase}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Points user + statut */}
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {picked ? (
+                        <span className={`text-sm font-bold tabular-nums ${pts != null && pts > 0 ? 'text-green-400' : 'text-zinc-400'}`}>
+                          {pts != null ? `${pts} pts` : '— pts'}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-zinc-600 font-medium">Non joué</span>
+                      )}
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                        match.status === 'termine' ? 'bg-zinc-800 text-zinc-500' : 'bg-orange-950 text-orange-400'
+                      }`}>
+                        {match.status === 'termine' ? 'Terminé' : 'En cours'}
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           </section>
         )}

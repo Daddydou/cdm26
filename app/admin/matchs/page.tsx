@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { triggerComputePoints } from '@/app/actions/admin'
 import Link from 'next/link'
+import ComputeButton from './ComputeButton'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 
@@ -99,15 +99,7 @@ export default async function AdminMatchsPage({
                   Modifier
                 </Link>
 
-                <form action={triggerComputePoints}>
-                  <input type="hidden" name="match_id" value={match.id} />
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 text-amber-400 text-xs font-semibold rounded-lg border border-amber-800/50 transition-colors"
-                  >
-                    Calculer points
-                  </button>
-                </form>
+                {status === 'termine' && <ComputeButton matchId={match.id} />}
               </div>
             </div>
           )

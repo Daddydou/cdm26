@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { redirect } from 'next/navigation'
+
 
 type PickState = { error: string | null }
 
@@ -174,6 +174,6 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
     }
   }
 
-  console.log('[savePick] ✓ Succès — redirection vers /')
-  redirect('/')
+  console.log('[savePick] ✓ Succès')
+  return { error: null }
 }

@@ -132,7 +132,7 @@ function PickCard({
         <div className="flex-shrink-0 text-right">
           {effectivePoints != null
             ? <span className="text-sm font-bold text-green-400 tabular-nums">{effectivePoints} pts</span>
-            : <span className="text-xs text-zinc-600">—</span>
+            : <span className="text-xs text-zinc-600 flex items-center gap-1">⏳ –</span>
           }
         </div>
       </div>
@@ -250,9 +250,11 @@ export default async function MatchPage({ params }: { params: { match_id: string
     (ratingsData ?? []).map(r => [r.player_id, r])
   )
 
-  const isUpcoming = match.status === 'a_venir'
-  const isOngoing  = match.status === 'en_cours'
-  const isFinished = match.status === 'termine'
+  const isUpcoming   = match.status === 'a_venir'
+  const isOngoing    = match.status === 'en_cours'
+  const isFinished   = match.status === 'termine'
+  const hasRatings   = Object.keys(ratingsMap).length > 0
+  const awaitingNotes = isFinished && picks.length > 0 && !hasRatings
 
   const multiplier = match.points_multiplier ?? 1
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -337,10 +339,23 @@ export default async function MatchPage({ params }: { params: { match_id: string
 
         {/* ── En cours ── */}
         {isOngoing && (
-          <div className="bg-orange-950/20 border border-orange-800/30 rounded-2xl px-5 py-6 text-center space-y-2">
-            <p className="text-3xl">⚽</p>
-            <p className="text-sm font-semibold text-orange-300">Match en cours</p>
-            <p className="text-xs text-zinc-500">Les résultats seront disponibles après le match</p>
+          <div className="bg-blue-950/20 border border-blue-800/30 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <span className="text-xl flex-shrink-0">⚽</span>
+            <div>
+              <p className="text-sm font-semibold text-blue-300">Match en cours — picks verrouillés</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Les résultats seront disponibles après le match</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Notes en attente ── */}
+        {awaitingNotes && (
+          <div className="bg-amber-950/20 border border-amber-800/30 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <span className="text-xl flex-shrink-0">⏳</span>
+            <div>
+              <p className="text-sm font-semibold text-amber-300">Notes ESPN en attente</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Le calcul des points sera effectué dès que les notes sont disponibles</p>
+            </div>
           </div>
         )}
 
