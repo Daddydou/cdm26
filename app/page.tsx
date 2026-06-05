@@ -97,6 +97,7 @@ export default async function HomePage() {
         .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
         .eq('status', 'a_venir')
         .order('kickoff_at', { ascending: true })
+        .limit(2)
       return nationFilter ? q.or(nationFilter) : q
     })(),
 
@@ -106,7 +107,7 @@ export default async function HomePage() {
         .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
         .in('status', ['termine', 'en_cours'])
         .order('kickoff_at', { ascending: false })
-        .limit(10)
+        .limit(2)
       return nationFilter ? q.or(nationFilter) : q
     })(),
 
