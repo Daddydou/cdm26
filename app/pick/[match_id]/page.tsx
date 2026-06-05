@@ -106,6 +106,8 @@ export default async function PickPage({ params }: { params: { match_id: string 
     .filter((r: { actually_played: boolean | null }) => r.actually_played !== false)
     .map((r: { player_id: string }) => r.player_id)
 
+  console.log('[pick/page] usedPlayerIds count:', usedPlayerIds.length, '| ids:', usedPlayerIds)
+
   // ── Bug 2 : Espion — picks des autres si bonus actif et match pas encore locké ──
   const existingPick = pickRes.data ?? null
   const isEspion = existingPick?.bonus_type === 'espion'

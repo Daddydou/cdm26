@@ -152,7 +152,11 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
     .from('cdm_player_usage')
     .insert(usageRows)
 
-  console.log('[savePick] 7. player_usage insert error:', usageError?.message, usageError?.code, usageError?.details)
+  if (usageError) {
+    console.error('[savePick] 7. ⚠ player_usage insert FAILED:', usageError.message, usageError.code, usageError.details)
+  } else {
+    console.log('[savePick] 7. player_usage insert OK — rows:', usageRows.length)
+  }
 
   // ── 8. Décrémenter remaining_uses si bonus activé (admin) ──
   if (userBonusId) {
