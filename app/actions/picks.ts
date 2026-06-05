@@ -89,16 +89,19 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   }
 
   // ── 5. Vérifier l'absence d'utilisation dans un autre match ──
-  const { data: usedRows, error: usedError } = await supabase
+  // Exclut les joueurs confirmés non-joués (actually_played = false)
+  const { data: usedRows } = await admin
     .from('cdm_player_usage')
-    .select('player_id')
+    .select('player_id, actually_played')
     .eq('user_id', cdmUser.id)
     .neq('match_id', matchId)
-    .or('actually_played.is.null,actually_played.eq.true')
+    .not('actually_played', 'eq', false)
 
-  console.log('[savePick] 5. usedRows:', usedRows, '| error:', usedError?.message)
+  console.log('[savePick] 5. usedRows:', usedRows)
 
-  const usedSet = new Set(usedRows?.map(r => r.player_id) ?? [])
+  const usedSet = new Set(
+    usedRows?.filter(r => r.actually_played !== false).map(r => r.player_id) ?? []
+  )
   const conflict = mainIds.find(id => usedSet.has(id))
   if (conflict) {
     console.log('[savePick] 5. FAIL: joueur déjà utilisé:', conflict)

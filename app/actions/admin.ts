@@ -172,22 +172,19 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     })
   }
 
+  // Recalcule total_points depuis zéro (idempotent : appeler N fois donne le même résultat)
   for (const userId of affectedUserIds) {
-    const { data: allPicks, error: sumError } = await admin
+    const { data: allPicks } = await admin
       .from('cdm_picks')
       .select('points_finaux')
       .eq('user_id', userId)
       .not('points_finaux', 'is', null)
 
-    if (sumError) {
-      console.error('[computeMatchPoints] sum error for user', userId, sumError.message)
-      continue
-    }
+    const newTotal = allPicks?.reduce((sum, p) => sum + (p.points_finaux ?? 0), 0) ?? 0
 
-    const total_points = (allPicks ?? []).reduce((acc, p) => acc + (p.points_finaux ?? 0), 0)
     await admin
       .from('cdm_users')
-      .update({ total_points: Math.round(total_points * 100) / 100 })
+      .update({ total_points: Math.round(newTotal * 100) / 100 })
       .eq('id', userId)
   }
 

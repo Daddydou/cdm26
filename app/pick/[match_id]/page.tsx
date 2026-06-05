@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import PickClient from './PickClient'
 
 export default async function PickPage({ params }: { params: { match_id: string } }) {
-  const supabase = createClient()
+  const supabase      = createClient()
+  const supabaseAdmin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   console.log('[pick/page] match_id:', params.match_id, '| user:', user?.email ?? 'non connecté')
@@ -60,13 +62,14 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
 
+    // Bug 3 : exclut les joueurs confirmés non-joués (actually_played = false)
     cdmUser
-      ? supabase
+      ? supabaseAdmin
           .from('cdm_player_usage')
-          .select('player_id')
+          .select('player_id, actually_played')
           .eq('user_id', cdmUser.id)
           .neq('match_id', params.match_id)
-          .or('actually_played.is.null,actually_played.eq.true')
+          .not('actually_played', 'eq', false)
       : Promise.resolve({ data: [], error: null }),
 
     cdmUser
@@ -99,7 +102,43 @@ export default async function PickPage({ params }: { params: { match_id: string 
   console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', (bonusRes as any).error?.message, (bonusRes as any).error?.code)
   console.log('[pick/page] 3d. cdmUser.id used for bonus query:', cdmUser?.id ?? 'null')
 
-  const usedPlayerIds: string[] = (usedRes.data ?? []).map((r: { player_id: string }) => r.player_id)
+  const usedPlayerIds: string[] = (usedRes.data ?? [])
+    .filter((r: { actually_played: boolean | null }) => r.actually_played !== false)
+    .map((r: { player_id: string }) => r.player_id)
+
+  // ── Bug 2 : Espion — picks des autres si bonus actif et match pas encore locké ──
+  const existingPick = pickRes.data ?? null
+  const isEspion = existingPick?.bonus_type === 'espion'
+
+  let espionPicks: Array<{
+    id: string
+    bonus_type: string | null
+    bonus_player_id: string | null
+    player_a1: { name: string; position: string } | null
+    player_a2: { name: string; position: string } | null
+    player_b1: { name: string; position: string } | null
+    player_b2: { name: string; position: string } | null
+    user: { username: string; photo_url: string | null } | null
+  }> | null = null
+
+  if (isEspion && match.status === 'a_venir' && cdmUser) {
+    const { data } = await supabaseAdmin
+      .from('cdm_picks')
+      .select(`
+        id, bonus_type, bonus_player_id,
+        player_a1:cdm_players!player_a1_id(name, position),
+        player_a2:cdm_players!player_a2_id(name, position),
+        player_b1:cdm_players!player_b1_id(name, position),
+        player_b2:cdm_players!player_b2_id(name, position),
+        user:cdm_users!user_id(username, photo_url)
+      `)
+      .eq('match_id', params.match_id)
+      .neq('user_id', cdmUser.id)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    espionPicks = (data as any) ?? null
+    console.log('[pick/page] espion: other picks found:', data?.length ?? 0)
+  }
 
   const isReadOnly =
     match.status !== 'a_venir' || new Date(match.kickoff_at) <= new Date()
@@ -113,11 +152,12 @@ export default async function PickPage({ params }: { params: { match_id: string 
       match={{ ...match, home_nation: homeNation, away_nation: awayNation }}
       playersA={playersA}
       playersB={playersB}
-      existingPick={pickRes.data ?? null}
+      existingPick={existingPick}
       usedPlayerIds={usedPlayerIds}
       userBonuses={bonusRes.data ?? []}
       isReadOnly={isReadOnly}
       x15Used={x15Res.count ?? 0}
+      espionPicks={espionPicks}
     />
   )
 }

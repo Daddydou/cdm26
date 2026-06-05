@@ -42,6 +42,17 @@ type BonusRecord = {
   remaining_uses: number
 }
 
+type EspionPick = {
+  id: string
+  bonus_type: string | null
+  bonus_player_id: string | null
+  player_a1: { name: string; position: string } | null
+  player_a2: { name: string; position: string } | null
+  player_b1: { name: string; position: string } | null
+  player_b2: { name: string; position: string } | null
+  user: { username: string; photo_url: string | null } | null
+}
+
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
 
 function isoFlag(code: string) {
@@ -192,7 +203,7 @@ function TeamSection({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PickClient({
-  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly, x15Used,
+  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly, x15Used, espionPicks,
 }: {
   match: MatchData
   playersA: Player[]
@@ -202,6 +213,7 @@ export default function PickClient({
   userBonuses: BonusRecord[]
   isReadOnly: boolean
   x15Used: number
+  espionPicks?: EspionPick[] | null
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -522,6 +534,46 @@ export default function PickClient({
                 )}
               </div>
             )}
+          </section>
+        )}
+
+        {/* ══ Espion — picks des autres participants ══ */}
+        {espionPicks && espionPicks.length > 0 && !isReadOnly && (
+          <section className="px-4 py-5 border-b border-zinc-800/50">
+            <h2 className="text-sm font-bold text-zinc-100 mb-1 flex items-center gap-2">
+              🕵️ Picks adverses
+              <span className="text-xs font-normal text-zinc-500">(bonus Espion actif)</span>
+            </h2>
+            <div className="space-y-3 mt-3">
+              {espionPicks.map(pick => {
+                const u = pick.user
+                const players = [pick.player_a1, pick.player_a2, pick.player_b1, pick.player_b2]
+                  .filter(Boolean) as { name: string; position: string }[]
+                return (
+                  <div key={pick.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-full bg-zinc-800 flex-shrink-0 flex items-center justify-center text-[10px] font-semibold text-zinc-500 overflow-hidden">
+                        {u?.photo_url
+                          ? <Image src={u.photo_url} alt={u.username} width={24} height={24} className="object-cover w-full h-full" />
+                          : u?.username?.[0]?.toUpperCase() ?? '?'
+                        }
+                      </div>
+                      <span className="text-xs font-semibold text-zinc-300">{u?.username ?? 'Inconnu'}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {players.map((p, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-zinc-800/60 border border-zinc-700/40 text-zinc-400">
+                          <span className={`text-[10px] font-bold ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
+                            {POS_LABEL[p.position] ?? p.position}
+                          </span>
+                          {p.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </section>
         )}
 
