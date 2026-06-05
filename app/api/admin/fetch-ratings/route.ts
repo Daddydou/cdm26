@@ -133,7 +133,7 @@ export async function GET(request: Request) {
 
   // ── 6. Mappe ESPN players → cdm_players et upsert ─────────────────────────
   const matched:   Array<{ espn_name: string; player_id: string; rating: number | null }> = []
-  const unmatched: string[] = []
+  const unmatched: Array<{ espn_name: string; team: string }> = []
 
   const upsertRows: Array<{
     match_id:       string
@@ -161,7 +161,7 @@ export async function GET(request: Request) {
         source:         'espn',
       })
     } else {
-      unmatched.push(ep.player_name)
+      unmatched.push({ espn_name: ep.player_name, team: ep.team_name })
     }
   }
 
