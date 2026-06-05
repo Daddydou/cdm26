@@ -69,6 +69,18 @@ export default async function HomePage() {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Nations vedettes à afficher sur la page d'accueil
+  const { data: featuredNations } = await supabase
+    .from('cdm_nations')
+    .select('id')
+    .in('name', ['Mexique', 'Brésil', 'Maroc', 'États-Unis', 'Allemagne', 'Pays-Bas',
+                  'Suède', 'Belgique', 'Espagne', 'France', 'Argentine', 'Portugal',
+                  'Angleterre', 'Croatie'])
+  const featuredIds = featuredNations?.map(n => n.id) ?? []
+  const nationFilter = featuredIds.length > 0
+    ? `nation_a_id.in.(${featuredIds.join(',')}),nation_b_id.in.(${featuredIds.join(',')})`
+    : null
+
   const [usersRes, picksRes, matchesRes, recentMatchesRes, meRes] = await Promise.all([
     supabase
       .from('cdm_users')
@@ -79,18 +91,24 @@ export default async function HomePage() {
       .from('cdm_picks')
       .select('user_id, match_id'),
 
-    supabase
-      .from('cdm_matches')
-      .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
-      .eq('status', 'a_venir')
-      .order('kickoff_at', { ascending: true }),
+    (() => {
+      const q = supabase
+        .from('cdm_matches')
+        .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
+        .eq('status', 'a_venir')
+        .order('kickoff_at', { ascending: true })
+      return nationFilter ? q.or(nationFilter) : q
+    })(),
 
-    supabase
-      .from('cdm_matches')
-      .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
-      .in('status', ['termine', 'en_cours'])
-      .order('kickoff_at', { ascending: false })
-      .limit(10),
+    (() => {
+      const q = supabase
+        .from('cdm_matches')
+        .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
+        .in('status', ['termine', 'en_cours'])
+        .order('kickoff_at', { ascending: false })
+        .limit(10)
+      return nationFilter ? q.or(nationFilter) : q
+    })(),
 
     user
       ? supabase
@@ -252,6 +270,11 @@ export default async function HomePage() {
               </div>
             )
           })()}
+          <div className="mt-3 text-right">
+            <Link href="/matchs" className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+              Voir tous les matchs →
+            </Link>
+          </div>
         </section>
 
         {/* ── Matchs récents ── */}
@@ -307,6 +330,11 @@ export default async function HomePage() {
                   </Link>
                 )
               })}
+            </div>
+            <div className="mt-3 text-right">
+              <Link href="/matchs" className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+                Voir tous les matchs →
+              </Link>
             </div>
           </section>
         )}
