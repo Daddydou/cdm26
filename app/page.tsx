@@ -81,8 +81,7 @@ export default async function HomePage() {
       .from('cdm_matches')
       .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
       .eq('status', 'a_venir')
-      .order('kickoff_at', { ascending: true })
-      .limit(5),
+      .order('kickoff_at', { ascending: true }),
 
     supabase
       .from('cdm_matches')
@@ -166,54 +165,76 @@ export default async function HomePage() {
               <p className="text-sm text-zinc-400 font-medium">La compétition n&apos;a pas encore commencé</p>
               <p className="text-xs text-zinc-600 mt-1">Les matchs apparaîtront ici dès leur ajout</p>
             </div>
-          ) : (
-            <div className="space-y-2.5">
-              {upcomingMatches.map(match => (
-                <div
-                  key={match.id}
-                  className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden"
-                >
-                  <div className="px-4 pt-3.5 pb-3 flex items-center justify-between gap-3">
-                    {/* Équipes — cliquable vers la page du match */}
-                    <Link href={`/match/${match.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xl leading-none">{iso(match.nation_a?.code ?? '')}</span>
-                        <span className="text-sm font-semibold text-zinc-100 truncate max-w-[90px]">
-                          {match.nation_a?.name}
-                        </span>
-                        <span className="text-[10px] font-bold text-zinc-600 px-1">VS</span>
-                        <span className="text-sm font-semibold text-zinc-100 truncate max-w-[90px]">
-                          {match.nation_b?.name}
-                        </span>
-                        <span className="text-xl leading-none">{iso(match.nation_b?.code ?? '')}</span>
-                      </div>
-                      <p className="text-[11px] text-zinc-500 mt-1 capitalize">
-                        {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "EEE d MMM · HH'h'mm", { locale: fr })}
-                      </p>
-                    </Link>
+          ) : (() => {
+            // Groupement par date (Europe/Paris)
+            const byDate: Record<string, { label: string; matches: Match[] }> = {}
+            for (const match of upcomingMatches) {
+              const key   = formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', 'yyyy-MM-dd')
+              const label = formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', 'EEEE d MMMM', { locale: fr })
+              if (!byDate[key]) byDate[key] = { label, matches: [] }
+              byDate[key].matches.push(match)
+            }
 
-                    {/* CTA */}
-                    <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
-                      {userPickedMatchIds.has(match.id) && (
-                        <span className="text-[10px] text-green-500 font-semibold flex items-center gap-0.5 whitespace-nowrap">
-                          ✅ Picks effectués
-                        </span>
-                      )}
-                      <Link
-                        href={`/pick/${match.id}`}
-                        className="px-3.5 py-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors"
-                      >
-                        Pronostic
-                      </Link>
+            return (
+              <div className="space-y-5">
+                {Object.entries(byDate).map(([key, { label, matches: dayMatches }]) => (
+                  <div key={key}>
+                    {/* Séparateur de date */}
+                    <p className="text-[11px] font-semibold text-zinc-400 capitalize mb-2 px-0.5">
+                      {label}
+                    </p>
+
+                    <div className="space-y-2">
+                      {dayMatches.map(match => (
+                        <div
+                          key={match.id}
+                          className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden"
+                        >
+                          <div className="px-4 pt-3.5 pb-3 flex items-center justify-between gap-3">
+                            {/* Équipes */}
+                            <Link href={`/match/${match.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xl leading-none">{iso(match.nation_a?.code ?? '')}</span>
+                                <span className="text-sm font-semibold text-zinc-100 truncate max-w-[90px]">
+                                  {match.nation_a?.name}
+                                </span>
+                                <span className="text-[10px] font-bold text-zinc-600 px-1">VS</span>
+                                <span className="text-sm font-semibold text-zinc-100 truncate max-w-[90px]">
+                                  {match.nation_b?.name}
+                                </span>
+                                <span className="text-xl leading-none">{iso(match.nation_b?.code ?? '')}</span>
+                              </div>
+                              <p className="text-[11px] text-zinc-500 mt-1">
+                                {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "HH'h'mm", { locale: fr })}
+                              </p>
+                            </Link>
+
+                            {/* CTA */}
+                            <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                              {userPickedMatchIds.has(match.id) && (
+                                <span className="text-[10px] text-green-500 font-semibold whitespace-nowrap">
+                                  ✓ Picks effectués
+                                </span>
+                              )}
+                              <Link
+                                href={`/pick/${match.id}`}
+                                className="px-3.5 py-2 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors"
+                              >
+                                Pronostic
+                              </Link>
+                            </div>
+                          </div>
+
+                          {/* Barre verte fine en bas */}
+                          <div className="h-0.5 bg-gradient-to-r from-green-600/40 via-green-500/20 to-transparent" />
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  {/* Barre verte fine en bas */}
-                  <div className="h-0.5 bg-gradient-to-r from-green-600/40 via-green-500/20 to-transparent" />
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )
+          })()}
         </section>
 
         {/* ── Résultats récents ── */}
