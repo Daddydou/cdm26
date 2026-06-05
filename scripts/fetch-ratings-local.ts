@@ -151,7 +151,7 @@ async function main() {
     .select('id, status, nation_a:cdm_nations!nation_a_id(id, name), nation_b:cdm_nations!nation_b_id(id, name)')
     .eq('status', 'termine')
 
-  const dbMatches = (dbMatchesRaw ?? []) as Array<{
+  const dbMatches = (dbMatchesRaw ?? []) as unknown as Array<{
     id: string
     status: string
     nation_a: { id: string; name: string }

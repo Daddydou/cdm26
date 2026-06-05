@@ -3,6 +3,7 @@ import { saveRatings } from '@/app/actions/admin'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import { EspnMatchButton, EspnAutoButton } from './EspnButtons'
+import { SofaImportPanel, ComputeAllButton } from './SofaImportPanel'
 
 const POSITION_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 }
 const POSITION_COLOR: Record<string, string> = {
@@ -85,10 +86,16 @@ export default async function NotesPage({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-zinc-100">Notes joueurs</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Saisie manuelle ou import automatique via ESPN</p>
+          <p className="text-sm text-zinc-500 mt-0.5">Import SofaScore · Saisie manuelle · Calcul des points</p>
         </div>
-        <EspnAutoButton />
+        <div className="flex items-start gap-2 flex-wrap">
+          <ComputeAllButton />
+          <EspnAutoButton />
+        </div>
       </div>
+
+      {/* Import SofaScore */}
+      <SofaImportPanel />
 
       {/* Sélecteur de match */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
