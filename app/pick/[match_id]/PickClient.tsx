@@ -14,7 +14,7 @@ type Player = {
   name: string
   position: string
   photo_url: string | null
-  nation_id: string
+  shirt_number?: number | null
 }
 
 type NationInfo = { id: string; name: string }

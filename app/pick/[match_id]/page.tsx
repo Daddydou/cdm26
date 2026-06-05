@@ -2,8 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import PickClient from './PickClient'
 
-const POSITION_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 }
-
 export default async function PickPage({ params }: { params: { match_id: string } }) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -38,11 +36,18 @@ export default async function PickPage({ params }: { params: { match_id: string 
   console.log('[pick/page] 2. cdmUser:', cdmUser, '| error:', cdmUserError?.message)
 
   // 3. Requêtes parallèles
-  const [playersRes, pickRes, usedRes, bonusRes, x15Res] = await Promise.all([
+  const [playersARes, playersBRes, pickRes, usedRes, bonusRes, x15Res] = await Promise.all([
     supabase
       .from('cdm_players')
-      .select('id, name, position, photo_url, nation_id')
-      .in('nation_id', [homeNation.id, awayNation.id]),
+      .select('id, name, position, shirt_number, photo_url')
+      .eq('nation_id', homeNation.id)
+      .order('name', { ascending: true }),
+
+    supabase
+      .from('cdm_players')
+      .select('id, name, position, shirt_number, photo_url')
+      .eq('nation_id', awayNation.id)
+      .order('name', { ascending: true }),
 
     cdmUser
       ? supabase
@@ -80,24 +85,17 @@ export default async function PickPage({ params }: { params: { match_id: string 
       : Promise.resolve({ count: 0, data: null, error: null }),
   ])
 
-  console.log('[pick/page] 3a. players count:', playersRes.data?.length, '| error:', playersRes.error?.message)
+  const playersA = playersARes.data ?? []
+  const playersB = playersBRes.data ?? []
+
+  console.log('[pick/page] 3a. playersA:', playersA.length, '| playersB:', playersB.length, '| errA:', playersARes.error?.message, '| errB:', playersBRes.error?.message)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3b. existingPick:', JSON.stringify(pickRes.data), '| error:', (pickRes as any).error?.message)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3c. usedPlayers count:', usedRes.data?.length, '| error:', (usedRes as any).error?.message)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', (bonusRes as any).error?.message, (bonusRes as any).error?.code)
-  console.log('[pick/page] 3d. bonuses raw:', JSON.stringify(bonusRes.data))
   console.log('[pick/page] 3d. cdmUser.id used for bonus query:', cdmUser?.id ?? 'null')
-
-  const allPlayers = (playersRes.data ?? []).sort(
-    (a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9)
-  )
-
-  const playersA = Array.from(new Map(allPlayers.filter(p => p.nation_id === homeNation.id).map(p => [p.id, p])).values())
-  const playersB = Array.from(new Map(allPlayers.filter(p => p.nation_id === awayNation.id).map(p => [p.id, p])).values())
-
-  console.log('[pick/page] playersA:', playersA.length, '| playersB:', playersB.length)
 
   const usedPlayerIds: string[] = (usedRes.data ?? []).map((r: { player_id: string }) => r.player_id)
 
