@@ -1,11 +1,22 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/connexion', '/inscription']
-// Ces routes passent toujours sans redirect, même si l'user est connecté
-const BYPASS_PATHS = ['/auth/callback']
+// Ces routes passent sans aucune vérification d'auth ni création de client Supabase
+const BYPASS_PATHS = [
+  '/connexion',
+  '/inscription',
+  '/auth/callback',
+  '/inscription/completer',
+]
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  if (BYPASS_PATHS.some(p => pathname.startsWith(p))) {
+    return NextResponse.next()
+  }
+
+  // — À partir d'ici : routes protégées uniquement —
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -29,29 +40,15 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Ne pas supprimer — maintient la session active
+  // Maintient la session active — ne pas supprimer
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
-
-  // /auth/callback doit toujours s'exécuter sans interférence
-  if (BYPASS_PATHS.some(p => pathname.startsWith(p))) {
-    return supabaseResponse
-  }
-
-  const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
-
-  console.log('[middleware]', pathname, '|', user ? `connecté (${user.email})` : 'non connecté', '|', isPublic ? 'public' : 'protégé')
-
-  if (!user && !isPublic) {
+  if (!user) {
+    console.log('[middleware] non connecté →', pathname, '→ redirect /connexion')
     return NextResponse.redirect(new URL('/connexion', request.url))
   }
 
-  if (user && isPublic) {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-
-  if (user && pathname.startsWith('/admin')) {
+  if (pathname.startsWith('/admin')) {
     const { data: cdmUser } = await supabase
       .from('cdm_users')
       .select('is_admin')
