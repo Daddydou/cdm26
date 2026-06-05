@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { saveRatings } from '@/app/actions/admin'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { EspnMatchButton, EspnAutoButton } from './EspnButtons'
 
 const POSITION_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 }
 const POSITION_COLOR: Record<string, string> = {
@@ -81,9 +82,12 @@ export default async function NotesPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Notes FotMob</h1>
-        <p className="text-sm text-zinc-500 mt-0.5">Saisie des notes par match</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-100">Notes joueurs</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">Saisie manuelle ou import automatique via ESPN</p>
+        </div>
+        <EspnAutoButton />
       </div>
 
       {/* Sélecteur de match */}
@@ -172,12 +176,15 @@ export default async function NotesPage({
             </div>
           )}
 
-          <button
-            type="submit"
-            className="w-full sm:w-auto px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            Enregistrer toutes les notes
-          </button>
+          <div className="flex flex-wrap items-start gap-3">
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              Enregistrer toutes les notes
+            </button>
+            <EspnMatchButton matchId={matchId} />
+          </div>
         </form>
       )}
 

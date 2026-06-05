@@ -90,7 +90,7 @@ export async function testSofascore() {
   let finishedMatch: { id: string; name: string } | null = null
   try {
     finishedMatch = await findFinishedMatch()
-  } catch (_) { /* pas encore de matchs terminés */ }
+  } catch { /* pas encore de matchs terminés */ }
 
   if (!finishedMatch) {
     return {
