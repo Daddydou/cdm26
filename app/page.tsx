@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -188,7 +188,7 @@ export default async function HomePage() {
                         <span className="text-xl leading-none">{iso(match.nation_b?.code ?? '')}</span>
                       </div>
                       <p className="text-[11px] text-zinc-500 mt-1 capitalize">
-                        {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
+                        {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "EEE d MMM · HH'h'mm", { locale: fr })}
                       </p>
                     </Link>
 

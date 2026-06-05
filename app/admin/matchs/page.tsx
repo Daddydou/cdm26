@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { triggerComputePoints } from '@/app/actions/admin'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -77,7 +77,7 @@ export default async function AdminMatchsPage({
                   )}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                  <span>{format(new Date(match.kickoff_at), "d MMM yyyy · HH'h'mm", { locale: fr })}</span>
+                  <span>{formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "d MMM yyyy · HH'h'mm", { locale: fr })}</span>
                   {match.phase && <span className="text-zinc-600">• {match.phase}</span>}
                   {match.points_multiplier && match.points_multiplier !== 1 && (
                     <span className="text-amber-500">×{match.points_multiplier}</span>

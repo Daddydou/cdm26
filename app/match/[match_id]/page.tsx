@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -297,7 +297,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
           </div>
           <div className="text-center space-y-0.5">
             <p className="text-[11px] text-zinc-500 capitalize">
-              {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
+              {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "EEE d MMM · HH'h'mm", { locale: fr })}
             </p>
             {(match.phase || (match.points_multiplier && match.points_multiplier !== 1)) && (
               <p className="text-[10px] text-zinc-600">

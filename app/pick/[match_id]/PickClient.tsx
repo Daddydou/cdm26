@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { savePick } from '@/app/actions/picks'
-import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -324,7 +324,7 @@ export default function PickClient({
             </span>
           </div>
           <p className="text-center text-[11px] text-zinc-500 capitalize">
-            {format(new Date(match.kickoff_at), "EEEE d MMMM · HH'h'mm", { locale: fr })}
+            {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "EEE d MMM · HH'h'mm", { locale: fr })}
           </p>
           {!isReadOnly && (
             <p className="text-center text-[11px] text-zinc-600">

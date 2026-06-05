@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { saveRatings } from '@/app/actions/admin'
-import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import { EspnMatchButton, EspnAutoButton } from './EspnButtons'
 
@@ -106,7 +106,7 @@ export default async function NotesPage({
                 const nb = m.nation_b as unknown as { name: string }
                 return (
                   <option key={m.id} value={m.id}>
-                    {na?.name} vs {nb?.name} — {format(new Date(m.kickoff_at), 'd MMM yyyy', { locale: fr })}
+                    {na?.name} vs {nb?.name} — {formatInTimeZone(new Date(m.kickoff_at), 'Europe/Paris', 'd MMM yyyy', { locale: fr })}
                   </option>
                 )
               })}

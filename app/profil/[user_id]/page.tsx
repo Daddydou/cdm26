@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -309,7 +309,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
 
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-[11px] text-zinc-500 capitalize">
-                          {format(new Date(m.kickoff_at), "d MMM · HH'h'mm", { locale: fr })}
+                          {formatInTimeZone(new Date(m.kickoff_at), 'Europe/Paris', "d MMM · HH'h'mm", { locale: fr })}
                         </p>
                         {m.phase && <span className="text-[10px] text-zinc-600">· {m.phase}</span>}
                         {multiplier !== 1 && <span className="text-[10px] text-amber-500 font-semibold">×{multiplier}</span>}
