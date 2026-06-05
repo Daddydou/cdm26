@@ -78,7 +78,7 @@ function getFlag(name: string) { return FLAGS[name] ?? '⚽' }
 
 const POS_LABEL: Record<string, string>  = { GK: 'GB',  DEF: 'DEF', MID: 'MIL', FWD: 'ATT' }
 const POS_COLOR: Record<string, string>  = { GK: 'text-yellow-500', DEF: 'text-blue-400', MID: 'text-emerald-400', FWD: 'text-red-400' }
-const POS_TITLE: Record<string, string>  = { GK: 'Gardiens', DEF: 'Défenseurs', MID: 'Milieux', FWD: 'Attaquants' }
+const _POS_TITLE: Record<string, string> = { GK: 'Gardiens', DEF: 'Défenseurs', MID: 'Milieux', FWD: 'Attaquants' }
 
 // ─── Métadonnées bonus ────────────────────────────────────────────────────────
 

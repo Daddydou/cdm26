@@ -100,6 +100,7 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     computed.push({
       pick_id:       pick.id,
       user_id:       pick.user_id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       username:      (pick.user as any)?.username ?? pick.user_id,
       points_bruts,
       points_finaux,

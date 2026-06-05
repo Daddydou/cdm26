@@ -25,8 +25,8 @@ export default async function PickPage({ params }: { params: { match_id: string 
 
   if (!match) notFound()
 
-  const homeNation = match.home_nation as { id: string; name: string }
-  const awayNation = match.away_nation as { id: string; name: string }
+  const homeNation = match.home_nation as unknown as { id: string; name: string }
+  const awayNation = match.away_nation as unknown as { id: string; name: string }
 
   console.log('[pick/page] homeNation:', homeNation, '| awayNation:', awayNation)
 
@@ -72,8 +72,11 @@ export default async function PickPage({ params }: { params: { match_id: string 
   ])
 
   console.log('[pick/page] 3a. players count:', playersRes.data?.length, '| error:', playersRes.error?.message)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3b. existingPick:', JSON.stringify(pickRes.data), '| error:', (pickRes as any).error?.message)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3c. usedPlayers count:', usedRes.data?.length, '| error:', (usedRes as any).error?.message)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', (bonusRes as any).error?.message, (bonusRes as any).error?.code)
   console.log('[pick/page] 3d. bonuses raw:', JSON.stringify(bonusRes.data))
   console.log('[pick/page] 3d. cdmUser.id used for bonus query:', cdmUser?.id ?? 'null')

@@ -12,27 +12,7 @@ function isoFlag(code: string) {
     String.fromCodePoint(c.charCodeAt(0) + 127397)
   )
 }
-const FLAGS: Record<string, string> = {
-  'France': isoFlag('FR'), 'Brésil': isoFlag('BR'), 'Bresil': isoFlag('BR'),
-  'Argentine': isoFlag('AR'), 'Espagne': isoFlag('ES'), 'Angleterre': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  'Allemagne': isoFlag('DE'), 'Portugal': isoFlag('PT'), 'Italie': isoFlag('IT'),
-  'États-Unis': isoFlag('US'), 'Etats-Unis': isoFlag('US'), 'USA': isoFlag('US'),
-  'Mexique': isoFlag('MX'), 'Canada': isoFlag('CA'), 'Maroc': isoFlag('MA'),
-  'Japon': isoFlag('JP'), 'Corée du Sud': isoFlag('KR'), 'Australie': isoFlag('AU'),
-  'Pays-Bas': isoFlag('NL'), 'Belgique': isoFlag('BE'), 'Croatie': isoFlag('HR'),
-  'Suisse': isoFlag('CH'), 'Pologne': isoFlag('PL'), 'Serbie': isoFlag('RS'),
-  'Danemark': isoFlag('DK'), 'Ukraine': isoFlag('UA'), 'Turquie': isoFlag('TR'),
-  'Türkiye': isoFlag('TR'), 'Sénégal': isoFlag('SN'), 'Uruguay': isoFlag('UY'),
-  'Colombie': isoFlag('CO'), 'Équateur': isoFlag('EC'), 'Pérou': isoFlag('PE'),
-  'Chili': isoFlag('CL'), 'Nigeria': isoFlag('NG'), 'Cameroun': isoFlag('CM'),
-  'Maroc': isoFlag('MA'), 'Tunisie': isoFlag('TN'), 'Algérie': isoFlag('DZ'),
-  'Brazil': isoFlag('BR'), 'Argentina': isoFlag('AR'), 'Spain': isoFlag('ES'),
-  'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Germany': isoFlag('DE'), 'Italy': isoFlag('IT'),
-  'Netherlands': isoFlag('NL'), 'Belgium': isoFlag('BE'), 'Croatia': isoFlag('HR'),
-  'Morocco': isoFlag('MA'), 'Japan': isoFlag('JP'), 'South Korea': isoFlag('KR'),
-  'United States': isoFlag('US'), 'Mexico': isoFlag('MX'),
-}
-function getFlag(name: string) { return FLAGS[name] ?? '⚽' }
+
 
 // ─── Bonus meta ───────────────────────────────────────────────────────────────
 
@@ -242,10 +222,10 @@ export default async function MatchPage({ params }: { params: { match_id: string
   }
 
   const match = matchRes.data
-  const picks: PickRow[] = (picksRes.data ?? []) as PickRow[]
-  const nationA = match.nation_a as { name: string; code: string } | null
-  const nationB = match.nation_b as { name: string; code: string } | null
-  const me = meRes.data
+  const picks: PickRow[] = (picksRes.data ?? []) as unknown as PickRow[]
+  const nationA = match.nation_a as unknown as { name: string; code: string } | null
+  const nationB = match.nation_b as unknown as { name: string; code: string } | null
+  const _me = meRes.data
 
   // Ratings FotMob — query séquentielle avec les player IDs des picks
   const playerIds = [...new Set(
@@ -272,6 +252,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
   const isFinished = match.status === 'termine'
 
   const multiplier = match.points_multiplier ?? 1
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const myPick = picks.find(p => (p.user as any)?.auth_id === user?.id) ?? null
   const rankedPicks = [...picks].sort((a, b) => {
     const ap = computeEffectivePoints(a, ratingsMap, multiplier) ?? -999
@@ -414,11 +395,15 @@ export default async function MatchPage({ params }: { params: { match_id: string
               {picks.map(p => (
                 <div key={p.id} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5">
                   <div className="w-5 h-5 rounded-full bg-zinc-700 flex-shrink-0 flex items-center justify-center text-[9px] text-zinc-400 font-semibold overflow-hidden">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(p.user as any)?.photo_url
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       ? <Image src={(p.user as any).photo_url} alt="" width={20} height={20} className="object-cover w-full h-full" />
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       : (p.user as any)?.username?.[0]?.toUpperCase()
                     }
                   </div>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <span className="text-xs text-zinc-400">{(p.user as any)?.username ?? '?'}</span>
                 </div>
               ))}

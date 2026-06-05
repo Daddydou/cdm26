@@ -33,43 +33,6 @@ function iso(code: string) {
   )
 }
 
-const FLAGS: Record<string, string> = {
-  // Noms français
-  'France': iso('FR'), 'Brésil': iso('BR'), 'Bresil': iso('BR'),
-  'Argentine': iso('AR'), 'Espagne': iso('ES'), 'Angleterre': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  'Allemagne': iso('DE'), 'Portugal': iso('PT'), 'Italie': iso('IT'),
-  'États-Unis': iso('US'), 'Etats-Unis': iso('US'), 'USA': iso('US'),
-  'Mexique': iso('MX'), 'Canada': iso('CA'), 'Maroc': iso('MA'),
-  'Japon': iso('JP'), 'Corée du Sud': iso('KR'), 'Australie': iso('AU'),
-  'Pays-Bas': iso('NL'), 'Belgique': iso('BE'), 'Croatie': iso('HR'),
-  'Suisse': iso('CH'), 'Pologne': iso('PL'), 'Serbie': iso('RS'),
-  'Danemark': iso('DK'), 'Ukraine': iso('UA'), 'Turquie': iso('TR'),
-  'Türkiye': iso('TR'), 'Sénégal': iso('SN'), 'Senegal': iso('SN'),
-  'Uruguay': iso('UY'), 'Colombie': iso('CO'), 'Équateur': iso('EC'),
-  'Equateur': iso('EC'), 'Pérou': iso('PE'), 'Chili': iso('CL'),
-  'Venezuela': iso('VE'), 'Bolivie': iso('BO'), 'Paraguay': iso('PY'),
-  'Nigeria': iso('NG'), 'Cameroun': iso('CM'), 'Ghana': iso('GH'),
-  'Tunisie': iso('TN'), 'Algérie': iso('DZ'), 'Algerie': iso('DZ'),
-  'Arabie Saoudite': iso('SA'), 'Iran': iso('IR'), 'Qatar': iso('QA'),
-  'Costa Rica': iso('CR'), 'Honduras': iso('HN'), 'Panama': iso('PA'),
-  'Écosse': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'Ecosse': '🏴󠁧󠁢󠁳󠁣󠁴󠁿', 'Pays de Galles': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
-  'Roumanie': iso('RO'), 'Slovaquie': iso('SK'), 'Autriche': iso('AT'),
-  // Noms anglais
-  'Brazil': iso('BR'), 'Argentina': iso('AR'), 'Spain': iso('ES'),
-  'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Germany': iso('DE'), 'Italy': iso('IT'),
-  'Netherlands': iso('NL'), 'Belgium': iso('BE'), 'Croatia': iso('HR'),
-  'Switzerland': iso('CH'), 'Poland': iso('PL'), 'Denmark': iso('DK'),
-  'Morocco': iso('MA'), 'Japan': iso('JP'), 'South Korea': iso('KR'),
-  'Australia': iso('AU'), 'United States': iso('US'), 'Mexico': iso('MX'),
-  'Colombia': iso('CO'), 'Ecuador': iso('EC'), 'Peru': iso('PE'),
-  'Chile': iso('CL'), 'Serbia': iso('RS'), 'Tunisia': iso('TN'),
-  'Cameroon': iso('CM'), 'Saudi Arabia': iso('SA'), 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-  'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
-}
-
-function getFlag(team: string): string {
-  return FLAGS[team] ?? '⚽'
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -138,11 +101,12 @@ export default async function HomePage() {
   ])
 
   console.log('[page] prochains matchs:', matchesRes.data, matchesRes.error)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[page] matchs récents:', recentMatchesRes.data, (recentMatchesRes as any).error)
 
-  const cdmUsers: CdmUser[] = usersRes.data ?? []
-  const upcomingMatches: Match[] = matchesRes.data ?? []
-  const recentMatches: Match[] = recentMatchesRes.data ?? []
+  const cdmUsers: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
+  const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
+  const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
   const me = meRes.data
 
   // Picks déjà effectués par l'utilisateur pour les prochains matchs

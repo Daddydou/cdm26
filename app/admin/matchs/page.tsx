@@ -59,8 +59,8 @@ export default async function AdminMatchsPage({
 
       <div className="space-y-2">
         {(matches ?? []).map(match => {
-          const na = match.nation_a as { name: string } | null
-          const nb = match.nation_b as { name: string } | null
+          const na = match.nation_a as unknown as { name: string } | null
+          const nb = match.nation_b as unknown as { name: string } | null
           const status = match.status as string
 
           return (

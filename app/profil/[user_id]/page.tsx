@@ -121,7 +121,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
 
   const profile  = profileRes.data
   const allUsers = allUsersRes.data ?? []
-  const picks: PickData[] = (picksRes.data ?? []) as PickData[]
+  const picks: PickData[] = (picksRes.data ?? []) as unknown as PickData[]
 
   // Count via client admin pour bypasser le RLS
   const { data: allPicks, error: picksCountError } = await supabaseAdmin
@@ -137,13 +137,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   const rank = allUsers.findIndex(u => u.id === params.user_id) + 1
 
   // Stats
-  const matchesPlayed  = allPicks?.length ?? 0
-  const totalPoints    = profile.total_points ?? 0
-  const finishedPicks  = picks.filter(p => p.points_finaux != null)
-  const bestMatch      = finishedPicks.reduce((max, p) => Math.max(max, p.points_finaux ?? 0), 0)
-  const avgPoints      = matchesPlayed > 0
-    ? Math.round((totalPoints / matchesPlayed) * 10) / 10
-    : 0
+  const totalPoints = profile.total_points ?? 0
 
   // Notes FotMob — une seule requête croisée match×joueur
   const matchIds    = [...new Set(picks.map(p => p.match?.id).filter(Boolean) as string[])]
@@ -179,7 +173,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   ])
 
   const usedIds        = new Set((usedRes.data ?? []).map(u => u.player_id))
-  const allPlayers     = ((allPlayersRes.data ?? []) as Player[])
+  const allPlayers     = ((allPlayersRes.data ?? []) as unknown as Player[])
   const available      = allPlayers
     .filter(p => !usedIds.has(p.id))
     .sort((a, b) => (POS_ORDER[a.position] ?? 9) - (POS_ORDER[b.position] ?? 9))

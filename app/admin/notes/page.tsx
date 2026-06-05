@@ -11,7 +11,7 @@ const POSITION_COLOR: Record<string, string> = {
   FWD: 'bg-red-950/50 text-red-400 border-red-800/40',
 }
 
-const INPUT_SM = 'w-16 bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1 text-sm text-zinc-100 text-center focus:outline-none focus:border-zinc-500 transition-colors tabular-nums'
+const _INPUT_SM = 'w-16 bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1 text-sm text-zinc-100 text-center focus:outline-none focus:border-zinc-500 transition-colors tabular-nums'
 
 export default async function NotesPage({
   searchParams,
@@ -49,8 +49,8 @@ export default async function NotesPage({
       .single()
 
     if (md) {
-      const na = md.nation_a as { name: string }
-      const nb = md.nation_b as { name: string }
+      const na = md.nation_a as unknown as { name: string }
+      const nb = md.nation_b as unknown as { name: string }
       matchLabel = `${na?.name} vs ${nb?.name}`
 
       const { data: pp } = await supabase
@@ -98,8 +98,8 @@ export default async function NotesPage({
             >
               <option value="">Sélectionner un match…</option>
               {(matches ?? []).map(m => {
-                const na = m.nation_a as { name: string }
-                const nb = m.nation_b as { name: string }
+                const na = m.nation_a as unknown as { name: string }
+                const nb = m.nation_b as unknown as { name: string }
                 return (
                   <option key={m.id} value={m.id}>
                     {na?.name} vs {nb?.name} — {format(new Date(m.kickoff_at), 'd MMM yyyy', { locale: fr })}

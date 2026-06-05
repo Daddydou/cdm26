@@ -47,7 +47,7 @@ export default async function JoueursPage({
       a.name.localeCompare(b.name)
     )
   }
-  const nationMap = new Map(nations.map(n => [n.id, n.name]))
+  const _nationMap = new Map(nations.map(n => [n.id, n.name]))
 
   return (
     <div className="space-y-6">
