@@ -119,17 +119,21 @@ export default async function HomePage() {
       : Promise.resolve({ data: null, error: null }),
   ])
 
-  console.log('[page] prochains matchs:', matchesRes.data, matchesRes.error)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  console.log('[page] matchs récents:', recentMatchesRes.data, (recentMatchesRes as any).error)
+  console.log('[page] cdmUsers count:', usersRes.data?.length, '| error:', usersRes.error?.message)
+  console.log('[page] meRes:', meRes.data, '| error:', meRes.error?.message, meRes.error?.code)
+  console.log('[page] prochains matchs:', matchesRes.data?.length, matchesRes.error?.message)
+  console.log('[page] matchs récents:', recentMatchesRes.data?.length, (recentMatchesRes as { error?: { message?: string } }).error?.message)
 
   const cdmUsers: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
   const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
   const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
   const me = meRes.data
 
-  // Utilisateur connecté sans profil → compléter l'inscription
-  if (user && !me) redirect('/inscription/completer')
+  // Redirige vers /inscription/completer uniquement si le user est authentifié
+  // mais n'a pas de profil (PGRST116 = no rows, pas une erreur de colonne manquante)
+  if (user && !me && meRes.error?.code === 'PGRST116') {
+    redirect('/inscription/completer')
+  }
 
   // Picks de l'utilisateur (matchs à venir + récents)
   let userPickedMatchIds = new Set<string>()
