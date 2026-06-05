@@ -1,42 +1,40 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  getESPNMatches,
-  getESPNRatings,
-  ESPN_TO_DB_NAME,
+  getSofaScoreMatches,
+  getSofaScoreRatings,
+  SOFA_TO_DB_NAME,
   normalizeName,
-  type EspnPlayerRating,
-} from '@/app/scripts/espn-ratings'
+  type SofaPlayerRating,
+} from '@/app/scripts/sofascore-ratings'
 
-// Recherche le meilleur match de nom dans une liste de joueurs
+// ─── Matching nom joueur ───────────────────────────────────────────────────────
+
 function findPlayer(
-  espnName: string,
+  sofaName: string,
   players: Array<{ id: string; name: string }>
 ): string | null {
-  const norm = normalizeName(espnName)
+  const norm = normalizeName(sofaName)
 
-  // 1. Correspondance exacte normalisée
+  // 1. Exacte
   const exact = players.find(p => normalizeName(p.name) === norm)
   if (exact) return exact.id
 
-  // 2. Correspondance sur le nom de famille (dernier mot)
+  // 2. Nom de famille uniquement (dernier mot)
   const lastName = norm.split(' ').at(-1) ?? ''
   if (lastName.length >= 3) {
-    const byLast = players.filter(p => {
-      const pNorm = normalizeName(p.name)
-      return pNorm.split(' ').at(-1) === lastName
-    })
+    const byLast = players.filter(p => normalizeName(p.name).split(' ').at(-1) === lastName)
     if (byLast.length === 1) return byLast[0].id
   }
 
-  // 3. Correspondance partielle : un nom contient l'autre
+  // 3. Partiel : un nom contient l'autre
   const partial = players.find(p => {
     const pNorm = normalizeName(p.name)
     return pNorm.includes(norm) || norm.includes(pNorm)
   })
-  if (partial) return partial.id
-
-  return null
+  return partial?.id ?? null
 }
+
+// ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -45,7 +43,7 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient()
 
-  // ── 1. Récupère le match Supabase ─────────────────────────────────────────
+  // ── 1. Match Supabase ─────────────────────────────────────────────────────
   const { data: match, error: matchErr } = await admin
     .from('cdm_matches')
     .select(`
@@ -60,33 +58,33 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Match introuvable' }, { status: 404 })
   }
 
-  const nationA = match.nation_a as unknown as { id: string; name: string }
-  const nationB = match.nation_b as unknown as { id: string; name: string }
+  const nationA  = match.nation_a as unknown as { id: string; name: string }
+  const nationB  = match.nation_b as unknown as { id: string; name: string }
   const kickoff  = new Date(match.kickoff_at)
 
-  // ── 2. Date YYYYMMDD ──────────────────────────────────────────────────────
-  const date = kickoff.toISOString().slice(0, 10).replace(/-/g, '')
+  // ── 2. Date YYYY-MM-DD pour SofaScore ────────────────────────────────────
+  const date = kickoff.toISOString().slice(0, 10)
 
-  // ── 3. Trouve le match ESPN correspondant ─────────────────────────────────
-  let espnMatches: Awaited<ReturnType<typeof getESPNMatches>>
+  // ── 3. Matchs SofaScore du jour ──────────────────────────────────────────
+  let sofaMatches: Awaited<ReturnType<typeof getSofaScoreMatches>>
   try {
-    espnMatches = await getESPNMatches(date)
+    sofaMatches = await getSofaScoreMatches(date)
   } catch (err) {
-    return Response.json({ error: `ESPN scoreboard: ${String(err)}` }, { status: 502 })
+    return Response.json({ error: `SofaScore scoreboard: ${String(err)}` }, { status: 502 })
   }
 
-  // Normalise les noms DB pour la comparaison (FR → EN via inverse lookup)
-  function dbToEspn(dbName: string): string[] {
-    const direct = Object.entries(ESPN_TO_DB_NAME)
+  // Lookup inverse : nom DB → noms SofaScore possibles
+  function dbToSofa(dbName: string): string[] {
+    const mapped = Object.entries(SOFA_TO_DB_NAME)
       .filter(([, v]) => v === dbName)
       .map(([k]) => k)
-    return [dbName, ...direct]
+    return [dbName, ...mapped]
   }
 
-  const namesA = dbToEspn(nationA.name).map(normalizeName)
-  const namesB = dbToEspn(nationB.name).map(normalizeName)
+  const namesA = dbToSofa(nationA.name).map(normalizeName)
+  const namesB = dbToSofa(nationB.name).map(normalizeName)
 
-  const espnMatch = espnMatches.find(m => {
+  const sofaMatch = sofaMatches.find(m => {
     const h = normalizeName(m.home_team)
     const a = normalizeName(m.away_team)
     return (
@@ -95,35 +93,35 @@ export async function GET(request: Request) {
     )
   })
 
-  if (!espnMatch) {
+  if (!sofaMatch) {
     return Response.json({
-      error:        'Match ESPN introuvable',
+      error:       'Match SofaScore introuvable',
       date,
-      searched:     { teamA: nationA.name, teamB: nationB.name },
-      espnMatches:  espnMatches.map(m => `${m.home_team} vs ${m.away_team}`),
+      searched:    { teamA: nationA.name, teamB: nationB.name },
+      sofaMatches: sofaMatches.map(m => `${m.home_team} vs ${m.away_team} [${m.tournament}]`),
     }, { status: 404 })
   }
 
-  // ── 4. Récupère les notes ESPN ────────────────────────────────────────────
-  let espnRatings: EspnPlayerRating[]
+  // ── 4. Notes SofaScore ───────────────────────────────────────────────────
+  let sofaRatings: SofaPlayerRating[]
   try {
-    espnRatings = await getESPNRatings(espnMatch.espn_id)
+    sofaRatings = await getSofaScoreRatings(sofaMatch.event_id)
   } catch (err) {
     return Response.json({
-      error:      `ESPN summary: ${String(err)}`,
-      espn_id:    espnMatch.espn_id,
+      error:    `SofaScore summary: ${String(err)}`,
+      event_id: sofaMatch.event_id,
     }, { status: 502 })
   }
 
-  if (espnRatings.length === 0) {
+  if (sofaRatings.length === 0) {
     return Response.json({
-      error:     'Aucune note ESPN disponible (match pas encore terminé ?)',
-      espn_id:   espnMatch.espn_id,
-      completed: espnMatch.completed,
+      error:     'Aucune note SofaScore disponible (match pas encore terminé ?)',
+      event_id:  sofaMatch.event_id,
+      status:    sofaMatch.status,
     }, { status: 404 })
   }
 
-  // ── 5. Récupère les joueurs des deux nations ──────────────────────────────
+  // ── 5. Joueurs des deux nations ──────────────────────────────────────────
   const { data: players } = await admin
     .from('cdm_players')
     .select('id, name, nation_id')
@@ -131,9 +129,9 @@ export async function GET(request: Request) {
 
   const allPlayers = players ?? []
 
-  // ── 6. Mappe ESPN players → cdm_players et upsert ─────────────────────────
-  const matched:   Array<{ espn_name: string; player_id: string; rating: number | null }> = []
-  const unmatched: Array<{ espn_name: string; team: string }> = []
+  // ── 6. Matching + upsert ─────────────────────────────────────────────────
+  const matched:   Array<{ sofa_name: string; player_id: string; rating: number | null }> = []
+  const unmatched: Array<{ sofa_name: string; team: string }> = []
 
   const upsertRows: Array<{
     match_id:       string
@@ -146,22 +144,22 @@ export async function GET(request: Request) {
     source:         string
   }> = []
 
-  for (const ep of espnRatings) {
-    const playerId = findPlayer(ep.player_name, allPlayers)
+  for (const sr of sofaRatings) {
+    const playerId = findPlayer(sr.player_name, allPlayers)
     if (playerId) {
-      matched.push({ espn_name: ep.player_name, player_id: playerId, rating: ep.rating })
+      matched.push({ sofa_name: sr.player_name, player_id: playerId, rating: sr.rating })
       upsertRows.push({
         match_id:       matchId,
         player_id:      playerId,
-        fotmob_rating:  ep.rating,
-        goals:          ep.goals,
-        assists:        ep.assists,
-        penalty_saved:  ep.penalty_saves > 0,
-        minutes_played: ep.minutes_played,
-        source:         'espn',
+        fotmob_rating:  sr.rating,
+        goals:          sr.goals,
+        assists:        sr.assists,
+        penalty_saved:  sr.penalty_saves > 0,
+        minutes_played: sr.minutes_played,
+        source:         'sofascore',
       })
     } else {
-      unmatched.push({ espn_name: ep.player_name, team: ep.team_name })
+      unmatched.push({ sofa_name: sr.player_name, team: sr.team_name })
     }
   }
 
@@ -174,11 +172,11 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
-    espn_id:    espnMatch.espn_id,
-    espn_match: `${espnMatch.home_team} vs ${espnMatch.away_team}`,
-    matched:    matched.length,
+    event_id:     sofaMatch.event_id,
+    sofa_match:   `${sofaMatch.home_team} vs ${sofaMatch.away_team}`,
+    matched:      matched.length,
     unmatched,
     upsert_error: upsertError,
-    ratings:    matched,
+    ratings:      matched,
   })
 }
