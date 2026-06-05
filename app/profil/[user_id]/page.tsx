@@ -246,18 +246,9 @@ export default async function ProfilPage({ params }: { params: { user_id: string
 
         {/* ── Stats rapides ── */}
         <section>
-          <div className="grid grid-cols-4 gap-2">
-            {([
-              { label: 'Matchs',   value: String(matchesPlayed) },
-              { label: 'Total',    value: `${totalPoints} pts` },
-              { label: 'Meilleur', value: `${bestMatch} pts` },
-              { label: 'Moy.',     value: `${avgPoints} pts` },
-            ] as const).map(({ label, value }) => (
-              <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
-                <p className="text-base font-bold text-zinc-100 tabular-nums leading-tight">{value}</p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">{label}</p>
-              </div>
-            ))}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-green-400 tabular-nums">{totalPoints} pts</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">Total points</p>
           </div>
         </section>
 
