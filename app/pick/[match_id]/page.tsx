@@ -35,6 +35,8 @@ export default async function PickPage({ params }: { params: { match_id: string 
 
   console.log('[pick/page] 2. cdmUser:', cdmUser, '| error:', cdmUserError?.message)
 
+  console.log('[pick/page] homeNation.id:', homeNation?.id, '| awayNation.id:', awayNation?.id)
+
   // 3. Requêtes parallèles
   const [playersARes, playersBRes, pickRes, usedRes, bonusRes, x15Res] = await Promise.all([
     supabase
@@ -103,6 +105,8 @@ export default async function PickPage({ params }: { params: { match_id: string 
     match.status !== 'a_venir' || new Date(match.kickoff_at) <= new Date()
 
   console.log('[pick/page] isReadOnly:', isReadOnly, '| status:', match.status, '| kickoff_at:', match.kickoff_at)
+  console.log('[pick/page] playersA count:', playersA?.length, 'premier joueur:', playersA?.[0]?.name)
+  console.log('[pick/page] playersB count:', playersB?.length)
 
   return (
     <PickClient
