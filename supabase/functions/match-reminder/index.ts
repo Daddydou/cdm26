@@ -74,6 +74,23 @@ Deno.serve(async () => {
       console.error(`[match-reminder] Log error (${match.id}):`, logError.message)
     }
 
+    // Envoyer les push notifications
+    await Promise.allSettled(
+      usersWithoutPick.map(u =>
+        fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify({
+            user_id: u.id,
+            message: `⚽ ${na} vs ${nb} dans moins d'une heure — fais tes picks !`,
+          }),
+        })
+      )
+    )
+
     console.log(`[match-reminder] ${na} vs ${nb} — ${usersWithoutPick.length} rappels envoyés`)
     results.push({ match_id: match.id, label: `${na} vs ${nb}`, notified: usersWithoutPick.length })
   }

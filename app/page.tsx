@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
+import NotificationButton from './components/NotificationButton'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -174,12 +175,15 @@ export default async function HomePage() {
           </div>
 
           {me && (
-            <Link href={`/profil/${me.id}`} className="flex items-center gap-2.5 group">
-              <span className="text-xs text-zinc-400 group-hover:text-zinc-300 transition-colors hidden sm:block">
-                {me.username}
-              </span>
-              <Avatar src={me.photo_url} name={me.username} size="sm" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <NotificationButton />
+              <Link href={`/profil/${me.id}`} className="flex items-center gap-2.5 group">
+                <span className="text-xs text-zinc-400 group-hover:text-zinc-300 transition-colors hidden sm:block">
+                  {me.username}
+                </span>
+                <Avatar src={me.photo_url} name={me.username} size="sm" />
+              </Link>
+            </div>
           )}
         </div>
       </header>
