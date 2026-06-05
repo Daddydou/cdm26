@@ -13,6 +13,12 @@
 /.next/
 /out/
 
+# PWA — générés au build, ne pas commiter
+/public/sw.js
+/public/sw.js.map
+/public/workbox-*.js
+/public/workbox-*.js.map
+
 # production
 /build
 
