@@ -94,8 +94,8 @@ export default async function PickPage({ params }: { params: { match_id: string 
     (a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9)
   )
 
-  const playersA = allPlayers.filter(p => p.nation_id === homeNation.id)
-  const playersB = allPlayers.filter(p => p.nation_id === awayNation.id)
+  const playersA = Array.from(new Map(allPlayers.filter(p => p.nation_id === homeNation.id).map(p => [p.id, p])).values())
+  const playersB = Array.from(new Map(allPlayers.filter(p => p.nation_id === awayNation.id).map(p => [p.id, p])).values())
 
   console.log('[pick/page] playersA:', playersA.length, '| playersB:', playersB.length)
 
