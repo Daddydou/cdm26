@@ -656,7 +656,7 @@ export default function PickClient({
 
       {/* ══ Footer fixe — bouton ══ */}
       {!isReadOnly && (
-        <div className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/70 px-4 pt-3 pb-5">
+        <div className="fixed bottom-16 inset-x-0 z-30 bg-zinc-950/95 backdrop-blur-sm border-t border-zinc-800/70 px-4 pt-3 pb-5">
           <div className="max-w-lg mx-auto space-y-2">
             {error && (
               <p className="text-red-400 text-xs text-center animate-pulse">{error}</p>
