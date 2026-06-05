@@ -82,7 +82,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   const { data: { user } } = await supabase.auth.getUser()
 
   // Requêtes parallèles initiales
-  const [profileRes, allUsersRes, picksRes] = await Promise.all([
+  const [profileRes, allUsersRes, picksRes, countRes] = await Promise.all([
     supabase
       .from('cdm_users')
       .select('id, auth_id, username, photo_url, total_points')
@@ -110,6 +110,11 @@ export default async function ProfilPage({ params }: { params: { user_id: string
         )
       `)
       .eq('user_id', params.user_id),
+
+    supabase
+      .from('cdm_picks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', params.user_id),
   ])
 
   if (!profileRes.data) notFound()
@@ -124,12 +129,12 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   const rank = allUsers.findIndex(u => u.id === params.user_id) + 1
 
   // Stats
-  const matchesPlayed  = picks.length
+  const matchesPlayed  = countRes.count ?? 0
   const totalPoints    = profile.total_points ?? 0
   const finishedPicks  = picks.filter(p => p.points_finaux != null)
   const bestMatch      = finishedPicks.reduce((max, p) => Math.max(max, p.points_finaux ?? 0), 0)
-  const avgPoints      = finishedPicks.length > 0
-    ? Math.round((totalPoints / finishedPicks.length) * 10) / 10
+  const avgPoints      = matchesPlayed > 0
+    ? Math.round((totalPoints / matchesPlayed) * 10) / 10
     : 0
 
   // Notes FotMob — une seule requête croisée match×joueur
