@@ -116,35 +116,57 @@ function PlayerCard({
   isDisabled: boolean
   onClick: () => void
 }) {
+  const [showTooltip, setShowTooltip] = useState(false)
   const initials = player.name.split(' ').map(n => n[0]).slice(0, 2).join('')
   return (
-    <button
-      type="button"
-      onClick={isDisabled ? undefined : onClick}
-      disabled={isDisabled}
-      className={[
-        'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left',
-        isSelected
-          ? 'bg-green-950/60 border-green-600/80 ring-1 ring-green-600/20'
-          : isDisabled
-          ? 'opacity-25 bg-zinc-900/20 border-zinc-800/30 cursor-not-allowed'
-          : 'bg-zinc-900/50 border-zinc-800/60 hover:border-zinc-600 hover:bg-zinc-800/60 active:bg-zinc-800 cursor-pointer',
-      ].join(' ')}
-    >
-      <div className="w-7 h-7 rounded-full bg-zinc-800 flex-shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-semibold text-zinc-500">
-        {player.photo_url
-          ? <Image src={player.photo_url} alt={player.name} width={28} height={28} className="object-cover w-full h-full" />
-          : initials
-        }
-      </div>
-      <span className={`flex-1 text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
-        {player.name}
-      </span>
-      <span className={`text-[10px] font-bold flex-shrink-0 ${POS_COLOR[player.position] ?? 'text-zinc-500'}`}>
-        {POS_LABEL[player.position] ?? player.position}
-      </span>
-      {isSelected && <span className="text-green-500 text-sm flex-shrink-0 ml-0.5">✓</span>}
-    </button>
+    <div className="relative">
+      {showTooltip && !isDisabled && (
+        <div style={{
+          position: 'absolute', right: '100%', top: 0,
+          background: '#18181b', border: '1px solid #3f3f46',
+          borderRadius: '8px', padding: '8px 12px',
+          fontSize: '12px', color: 'white', zIndex: 50,
+          minWidth: '160px', maxWidth: '200px',
+          pointerEvents: 'none', marginRight: '6px',
+          whiteSpace: 'nowrap',
+        }}>
+          <div style={{ fontWeight: 600 }}>{player.name}</div>
+          <div style={{ color: '#a1a1aa', fontSize: '11px', marginTop: '2px' }}>
+            {player.shirt_number != null ? `#${player.shirt_number} · ` : ''}
+            {player.position}
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onClick={isDisabled ? undefined : onClick}
+        disabled={isDisabled}
+        className={[
+          'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left',
+          isSelected
+            ? 'bg-green-950/60 border-green-600/80 ring-1 ring-green-600/20'
+            : isDisabled
+            ? 'opacity-25 bg-zinc-900/20 border-zinc-800/30 cursor-not-allowed'
+            : 'bg-zinc-900/50 border-zinc-800/60 hover:border-zinc-600 hover:bg-zinc-800/60 active:bg-zinc-800 cursor-pointer',
+        ].join(' ')}
+      >
+        <div className="w-7 h-7 rounded-full bg-zinc-800 flex-shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-semibold text-zinc-500">
+          {player.photo_url
+            ? <Image src={player.photo_url} alt={player.name} width={28} height={28} className="object-cover w-full h-full" />
+            : initials
+          }
+        </div>
+        <span className={`flex-1 text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
+          {player.name}
+        </span>
+        <span className={`text-[10px] font-bold flex-shrink-0 ${POS_COLOR[player.position] ?? 'text-zinc-500'}`}>
+          {POS_LABEL[player.position] ?? player.position}
+        </span>
+        {isSelected && <span className="text-green-500 text-sm flex-shrink-0 ml-0.5">✓</span>}
+      </button>
+    </div>
   )
 }
 

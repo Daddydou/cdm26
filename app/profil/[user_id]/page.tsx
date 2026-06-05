@@ -5,6 +5,7 @@ import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
+import AvailablePlayersClient from './AvailablePlayersClient'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -177,14 +178,6 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   const available      = allPlayers
     .filter(p => !usedIds.has(p.id))
     .sort((a, b) => (POS_ORDER[a.position] ?? 9) - (POS_ORDER[b.position] ?? 9))
-
-  const byNation: Record<string, Player[]> = {}
-  for (const p of available) {
-    const n = p.nation?.name ?? 'Autre'
-    if (!byNation[n]) byNation[n] = []
-    byNation[n].push(p)
-  }
-  const nationEntries = Object.entries(byNation).sort(([a], [b]) => a.localeCompare(b, 'fr'))
 
   const isMe = !!user && profile.auth_id === user.id
 
@@ -376,42 +369,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
 
         {/* ── Joueurs encore disponibles ── */}
         {available.length > 0 && (
-          <section>
-            <details className="group">
-              <summary className="flex items-center justify-between cursor-pointer list-none select-none mb-3">
-                <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em]">
-                  Joueurs disponibles ({available.length})
-                </h2>
-                <span className="text-zinc-600 text-[10px] transition-transform group-open:rotate-180 inline-block">▼</span>
-              </summary>
-
-              <div className="space-y-4">
-                {nationEntries.map(([nationName, players]) => {
-                  const code = players[0]?.nation?.code ?? ''
-                  return (
-                    <div key={nationName}>
-                      <p className="text-[11px] font-semibold text-zinc-500 mb-1.5 flex items-center gap-1.5">
-                        <span>{code ? isoFlag(code) : '🏳️'}</span>
-                        {nationName}
-                        <span className="text-zinc-700 font-normal">({players.length})</span>
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {players.map(p => (
-                          <span
-                            key={p.id}
-                            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-zinc-800/60 border border-zinc-700/40 text-zinc-400"
-                          >
-                            <span className="text-[10px] text-zinc-600">{POS[p.position] ?? p.position}</span>
-                            {p.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </details>
-          </section>
+          <AvailablePlayersClient players={available} />
         )}
 
       </main>
