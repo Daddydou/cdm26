@@ -88,9 +88,21 @@ function getFlag(name: string) { return FLAGS[name] ?? '⚽' }
 
 // ─── Constantes positions ─────────────────────────────────────────────────────
 
-const POS_LABEL: Record<string, string>  = { GK: 'GB',  DEF: 'DEF', MID: 'MIL', FWD: 'ATT' }
-const POS_COLOR: Record<string, string>  = { GK: 'text-yellow-500', DEF: 'text-blue-400', MID: 'text-emerald-400', FWD: 'text-red-400' }
-const _POS_TITLE: Record<string, string> = { GK: 'Gardiens', DEF: 'Défenseurs', MID: 'Milieux', FWD: 'Attaquants' }
+const POS_LABEL:  Record<string, string> = { GK: 'GB',  DEF: 'DEF', MID: 'MIL', FWD: 'ATT' }
+const POS_COLOR:  Record<string, string> = { GK: 'text-yellow-500', DEF: 'text-blue-400', MID: 'text-emerald-400', FWD: 'text-red-400' }
+const POS_TITLE:  Record<string, string> = { GK: 'Gardiens', DEF: 'Défenseurs', MID: 'Milieux', FWD: 'Attaquants' }
+const POS_ORDER = ['GK', 'DEF', 'MID', 'FWD'] as const
+
+function sortPlayers(players: Player[]) {
+  return [...players].sort((a, b) => {
+    const posA = POS_ORDER.indexOf(a.position as typeof POS_ORDER[number])
+    const posB = POS_ORDER.indexOf(b.position as typeof POS_ORDER[number])
+    const orderA = posA === -1 ? 99 : posA
+    const orderB = posB === -1 ? 99 : posB
+    if (orderA !== orderB) return orderA - orderB
+    return a.name.localeCompare(b.name, 'fr')
+  })
+}
 
 // ─── Métadonnées bonus ────────────────────────────────────────────────────────
 
@@ -208,16 +220,29 @@ function TeamSection({
         )}
       </div>
 
-      <div className="space-y-1.5">
-        {players.map(player => (
-          <PlayerCard
-            key={player.id}
-            player={player}
-            isSelected={selected.includes(player.id)}
-            isDisabled={!isReadOnly && usedIds.has(player.id) && !selected.includes(player.id)}
-            onClick={() => onToggle(player.id)}
-          />
-        ))}
+      <div className="space-y-3">
+        {POS_ORDER
+          .map(pos => ({ pos, group: sortPlayers(players).filter(p => p.position === pos) }))
+          .filter(({ group }) => group.length > 0)
+          .map(({ pos, group }, i) => (
+            <div key={pos}>
+              <p className={`text-[10px] font-semibold text-zinc-600 uppercase tracking-wider px-1 pb-1.5 ${i > 0 ? 'pt-1' : ''}`}>
+                {POS_TITLE[pos] ?? pos}
+              </p>
+              <div className="space-y-1.5">
+                {group.map(player => (
+                  <PlayerCard
+                    key={player.id}
+                    player={player}
+                    isSelected={selected.includes(player.id)}
+                    isDisabled={!isReadOnly && usedIds.has(player.id) && !selected.includes(player.id)}
+                    onClick={() => onToggle(player.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))
+        }
       </div>
     </section>
   )
