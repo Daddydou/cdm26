@@ -22,7 +22,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
   const supabaseAdmin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [matchRes, picksRes, meRes] = await Promise.all([
+  const [matchRes, picksRes] = await Promise.all([
     supabase
       .from('cdm_matches')
       .select(`
@@ -46,10 +46,6 @@ export default async function MatchPage({ params }: { params: { match_id: string
       `)
       .eq('match_id', params.match_id)
       .order('points_finaux', { ascending: false }),
-
-    user
-      ? supabase.from('cdm_users').select('id, auth_id').eq('auth_id', user.id).single()
-      : Promise.resolve({ data: null, error: null }),
   ])
 
   if (!matchRes.data) notFound()
