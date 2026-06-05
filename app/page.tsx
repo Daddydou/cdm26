@@ -192,6 +192,70 @@ export default async function HomePage() {
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-7 pb-10">
 
+        {/* ── Classement général ── */}
+        <section>
+          <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+            Classement général
+          </h2>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            {cdmUsers.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm text-zinc-500">Aucun joueur inscrit pour le moment</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-zinc-950/40">
+                  <div className="w-7" />
+                  <div className="w-9" />
+                  <div className="flex-1 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Joueur</div>
+                  <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider w-12 text-right">Matchs</div>
+                  <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider w-12 text-right">Points</div>
+                </div>
+                <ul>
+                  {cdmUsers.map((cdmUser, i) => {
+                    const isMe = cdmUser.auth_id === user?.id
+                    const played = matchesPlayed[cdmUser.id] ?? 0
+                    const pts = cdmUser.total_points ?? 0
+                    return (
+                      <li
+                        key={cdmUser.id}
+                        className={[
+                          'flex items-center gap-3 px-4 py-3',
+                          i < cdmUsers.length - 1 ? 'border-b border-zinc-800/70' : '',
+                          isMe ? 'bg-green-950/25' : '',
+                        ].join(' ')}
+                      >
+                        <div className="w-7 text-center flex-shrink-0">
+                          {i < 3
+                            ? <span className="text-base leading-none">{MEDALS[i]}</span>
+                            : <span className="text-xs text-zinc-600 font-mono tabular-nums">{i + 1}</span>
+                          }
+                        </div>
+                        <Avatar src={cdmUser.photo_url} name={cdmUser.username} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate leading-tight ${isMe ? 'text-green-400' : 'text-zinc-100'}`}>
+                            {cdmUser.username}
+                            {isMe && <span className="ml-1.5 text-[10px] text-zinc-600 font-normal">moi</span>}
+                          </p>
+                        </div>
+                        <div className="w-12 text-right flex-shrink-0">
+                          <span className="text-xs text-zinc-500 tabular-nums">{played}</span>
+                        </div>
+                        <div className="w-12 text-right flex-shrink-0">
+                          <span className={`text-sm font-bold tabular-nums ${pts > 0 ? 'text-green-400' : 'text-zinc-600'}`}>
+                            {pts}
+                          </span>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
+        </section>
+
         {/* ── Prochains matchs ── */}
         <section>
           <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
@@ -343,81 +407,6 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* ── Classement général ── */}
-        <section>
-          <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
-            Classement général
-          </h2>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-            {cdmUsers.length === 0 ? (
-              <div className="px-5 py-8 text-center">
-                <p className="text-sm text-zinc-500">Aucun joueur inscrit pour le moment</p>
-              </div>
-            ) : (
-              <>
-                {/* En-tête colonnes */}
-                <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-zinc-950/40">
-                  <div className="w-7" />
-                  <div className="w-9" />
-                  <div className="flex-1 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Joueur</div>
-                  <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider w-12 text-right">Matchs</div>
-                  <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider w-12 text-right">Points</div>
-                </div>
-
-                <ul>
-                  {cdmUsers.map((cdmUser, i) => {
-                    const isMe = cdmUser.auth_id === user?.id
-                    const played = matchesPlayed[cdmUser.id] ?? 0
-                    const pts = cdmUser.total_points ?? 0
-
-                    return (
-                      <li
-                        key={cdmUser.id}
-                        className={[
-                          'flex items-center gap-3 px-4 py-3',
-                          i < cdmUsers.length - 1 ? 'border-b border-zinc-800/70' : '',
-                          isMe ? 'bg-green-950/25' : '',
-                        ].join(' ')}
-                      >
-                        {/* Rang */}
-                        <div className="w-7 text-center flex-shrink-0">
-                          {i < 3
-                            ? <span className="text-base leading-none">{MEDALS[i]}</span>
-                            : <span className="text-xs text-zinc-600 font-mono tabular-nums">{i + 1}</span>
-                          }
-                        </div>
-
-                        {/* Avatar */}
-                        <Avatar src={cdmUser.photo_url} name={cdmUser.username} size="md" />
-
-                        {/* Nom */}
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate leading-tight ${isMe ? 'text-green-400' : 'text-zinc-100'}`}>
-                            {cdmUser.username}
-                            {isMe && <span className="ml-1.5 text-[10px] text-zinc-600 font-normal">moi</span>}
-                          </p>
-                        </div>
-
-                        {/* Matchs joués */}
-                        <div className="w-12 text-right flex-shrink-0">
-                          <span className="text-xs text-zinc-500 tabular-nums">{played}</span>
-                        </div>
-
-                        {/* Points */}
-                        <div className="w-12 text-right flex-shrink-0">
-                          <span className={`text-sm font-bold tabular-nums ${pts > 0 ? 'text-green-400' : 'text-zinc-600'}`}>
-                            {pts}
-                          </span>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
-        </section>
 
       </main>
     </div>
