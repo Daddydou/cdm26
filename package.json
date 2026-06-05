@@ -12,6 +12,7 @@
     "@ducanh2912/next-pwa": "^10.2.9",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
+    "autoprefixer": "^10.5.0",
     "canvas": "^3.2.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
