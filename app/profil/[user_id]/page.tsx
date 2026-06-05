@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -78,11 +79,12 @@ type Player = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ProfilPage({ params }: { params: { user_id: string } }) {
-  const supabase = createClient()
+  const supabase      = createClient()
+  const supabaseAdmin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   // Requêtes parallèles initiales
-  const [profileRes, allUsersRes, picksRes, countRes] = await Promise.all([
+  const [profileRes, allUsersRes, picksRes] = await Promise.all([
     supabase
       .from('cdm_users')
       .select('id, auth_id, username, photo_url, total_points')
@@ -110,16 +112,10 @@ export default async function ProfilPage({ params }: { params: { user_id: string
         )
       `)
       .eq('user_id', params.user_id),
-
-    supabase
-      .from('cdm_picks')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', params.user_id),
   ])
 
   console.log('[profil] user_id param:', params.user_id)
   console.log('[profil] profile.id:', profileRes.data?.id)
-  console.log('[profil] countRes:', countRes)
 
   if (!profileRes.data) notFound()
 
@@ -127,13 +123,21 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   const allUsers = allUsersRes.data ?? []
   const picks: PickData[] = (picksRes.data ?? []) as PickData[]
 
+  // Count via client admin pour bypasser le RLS
+  const { data: allPicks, error: picksCountError } = await supabaseAdmin
+    .from('cdm_picks')
+    .select('id')
+    .eq('user_id', params.user_id)
+
+  console.log('[profil] allPicks:', allPicks, picksCountError)
+
   picks.sort((a, b) => (b.match?.kickoff_at ?? '').localeCompare(a.match?.kickoff_at ?? ''))
 
   // Rang dans le classement général
   const rank = allUsers.findIndex(u => u.id === params.user_id) + 1
 
   // Stats
-  const matchesPlayed  = countRes.count ?? 0
+  const matchesPlayed  = allPicks?.length ?? 0
   const totalPoints    = profile.total_points ?? 0
   const finishedPicks  = picks.filter(p => p.points_finaux != null)
   const bestMatch      = finishedPicks.reduce((max, p) => Math.max(max, p.points_finaux ?? 0), 0)
