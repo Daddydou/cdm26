@@ -117,6 +117,10 @@ export default async function ProfilPage({ params }: { params: { user_id: string
       .eq('user_id', params.user_id),
   ])
 
+  console.log('[profil] user_id param:', params.user_id)
+  console.log('[profil] profile.id:', profileRes.data?.id)
+  console.log('[profil] countRes:', countRes)
+
   if (!profileRes.data) notFound()
 
   const profile  = profileRes.data
