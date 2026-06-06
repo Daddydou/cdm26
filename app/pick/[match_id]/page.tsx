@@ -69,7 +69,6 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .select('player_id, actually_played')
           .eq('user_id', cdmUser.id)
           .neq('match_id', params.match_id)
-          .not('actually_played', 'eq', false)
       : Promise.resolve({ data: [], error: null }),
 
     cdmUser
