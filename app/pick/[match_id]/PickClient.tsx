@@ -35,6 +35,7 @@ type ExistingPick = {
   player_b2_id?: string | null
   bonus_player_id?: string | null
   bonus_type?: string | null
+  bonus_data?: Record<string, unknown> | null
 }
 
 type BonusRecord = {
@@ -279,10 +280,31 @@ export default function PickClient({
   const [bonusPlayer, setBonusPlayer] = useState<string | null>(existingPick?.bonus_player_id ?? null)
 
   // Bonus de match
-  const [activeBonusId, setActiveBonusId] = useState<string | null>(existingPick?.bonus_type ?? null)
-  const [troisHommePlayer, setTroisHommePlayer] = useState<string | null>(null)
-  const [troisHommeTeam, setTroisHommeTeam] = useState<'A' | 'B' | null>(null)
+  const [activeBonusId, setActiveBonusId] = useState<string | null>(() => {
+    if (!existingPick?.bonus_type) return null
+    // Trouve l'UUID du cdm_user_bonus correspondant au type sauvegardé
+    const found = (userBonuses ?? []).find(ub => ub.bonus_type === existingPick.bonus_type)
+    return found?.id ?? null
+  })
+  const [troisHommePlayer, setTroisHommePlayer] = useState<string | null>(() => {
+    if (existingPick?.bonus_type === 'troisieme_homme') {
+      return (existingPick.bonus_data?.player_id as string) ?? null
+    }
+    return null
+  })
+  const [troisHommeTeam, setTroisHommeTeam] = useState<'A' | 'B' | null>(() => {
+    if (existingPick?.bonus_type === 'troisieme_homme') {
+      const pid = existingPick.bonus_data?.player_id as string | undefined
+      if (pid) {
+        if (playersA.some(p => p.id === pid)) return 'A'
+        if (playersB.some(p => p.id === pid)) return 'B'
+      }
+    }
+    return null
+  })
   const [allInAmount, setAllInAmount] = useState(5)
+
+  console.log('[PickClient] existingPick bonus_data:', existingPick?.bonus_data)
 
   // Dérivés
   const usedIds = new Set(usedPlayerIds)

@@ -56,7 +56,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
     cdmUser
       ? supabase
           .from('cdm_picks')
-          .select('player_a1_id, player_a2_id, player_b1_id, player_b2_id, bonus_player_id, bonus_type')
+          .select('player_a1_id, player_a2_id, player_b1_id, player_b2_id, bonus_player_id, bonus_type, bonus_data')
           .eq('match_id', params.match_id)
           .eq('user_id', cdmUser.id)
           .maybeSingle()
