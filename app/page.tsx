@@ -120,15 +120,16 @@ export default async function HomePage() {
       : Promise.resolve({ data: null, error: null }),
   ])
 
+  const me = meRes.data
+
   console.log('[page] cdmUsers count:', usersRes.data?.length, '| error:', usersRes.error?.message)
-  console.log('[page] meRes:', meRes.data, '| error:', meRes.error?.message, meRes.error?.code)
+  console.log('[page] cdmUser:', me?.username, '| is_admin:', (me as Record<string, unknown>)?.is_admin)
   console.log('[page] prochains matchs:', matchesRes.data?.length, matchesRes.error?.message)
   console.log('[page] matchs récents:', recentMatchesRes.data?.length, (recentMatchesRes as { error?: { message?: string } }).error?.message)
 
   const cdmUsers: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
   const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
   const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
-  const me = meRes.data
 
   // Redirige vers /inscription/completer uniquement si le user est authentifié
   // mais n'a pas de profil (PGRST116 = no rows, pas une erreur de colonne manquante)
@@ -171,13 +172,10 @@ export default async function HomePage() {
 
           {me && (
             <div className="flex items-center gap-2">
-              {(me as { is_admin?: boolean }).is_admin && (
-                <Link
-                  href="/admin"
-                  className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded-md hover:bg-zinc-800/60"
-                >
-                  ⚙️
-                </Link>
+              {me?.is_admin === true && (
+                <a href="/admin" className="text-xs bg-zinc-800 text-zinc-300 px-3 py-1 rounded-full hover:bg-zinc-700 transition-colors">
+                  ⚙️ Admin
+                </a>
               )}
               <NotificationButton />
               <Link href={`/profil/${me.id}`} className="flex items-center gap-2.5 group">
