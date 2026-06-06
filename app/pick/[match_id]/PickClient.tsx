@@ -323,15 +323,16 @@ export default function PickClient({
   function toggleSelA(id: string) {
     setSelA(prev => {
       if (prev.includes(id)) { if (bonusPlayer === id) setBonusPlayer(null); return prev.filter(x => x !== id) }
-      const next = prev.length >= 2 ? [prev[1], id] : [...prev, id]
-      return next
+      if (prev.length >= 2) return prev
+      return [...prev, id]
     })
   }
 
   function toggleSelB(id: string) {
     setSelB(prev => {
       if (prev.includes(id)) { if (bonusPlayer === id) setBonusPlayer(null); return prev.filter(x => x !== id) }
-      return prev.length >= 2 ? [prev[1], id] : [...prev, id]
+      if (prev.length >= 2) return prev
+      return [...prev, id]
     })
   }
 
