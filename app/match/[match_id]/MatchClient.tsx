@@ -170,29 +170,22 @@ function PickCard({
 
 // ─── BonusLegend ──────────────────────────────────────────────────────────────
 
-function BonusLegend({ picks }: { picks: PickRow[] }) {
-  const usedTypes = [...new Set(picks.map(p => p.bonus_type).filter(Boolean))] as string[]
-  if (usedTypes.length === 0) return null
-
+function BonusLegend() {
   return (
     <section>
       <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
         Légende
       </h2>
       <div className="flex flex-wrap gap-2">
-        {usedTypes.map(type => {
-          const meta = BONUS_META[type]
-          if (!meta) return null
-          return (
-            <div key={type} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
-              <span className="text-base leading-none flex-shrink-0">{meta.icon}</span>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-zinc-300 leading-tight">{meta.name}</p>
-                <p className="text-[10px] text-zinc-500 leading-tight">{meta.desc}</p>
-              </div>
+        {Object.entries(BONUS_META).map(([type, meta]) => (
+          <div key={type} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+            <span className="text-base leading-none flex-shrink-0">{meta.icon}</span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-zinc-300 leading-tight">{meta.name}</p>
+              <p className="text-[10px] text-zinc-500 leading-tight">{meta.desc}</p>
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -358,9 +351,7 @@ export default function MatchClient({
       )}
 
       {/* ── Légende des bonus ── */}
-      {(isFinished || isOngoing) && rankedPicks.length > 0 && (
-        <BonusLegend picks={rankedPicks} />
-      )}
+      {isFinished && <BonusLegend />}
 
       {/* ── Aucun pick ── */}
       {(isFinished || isOngoing) && rankedPicks.length === 0 && (
