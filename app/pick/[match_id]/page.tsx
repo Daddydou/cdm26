@@ -79,7 +79,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
           .gt('remaining_uses', 0)
       : Promise.resolve({ data: [], error: null }),
 
-    // Nombre de picks passés où l'user a désigné un joueur ×1.5
+    // Nombre de picks passés où l'user a désigné un joueur ×2
     cdmUser
       ? supabase
           .from('cdm_picks')
