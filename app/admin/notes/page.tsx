@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { saveRatings } from '@/app/actions/admin'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
-import { EspnMatchButton, EspnAutoButton } from './EspnButtons'
+
 import { SofaImportPanel, ComputeAllButton } from './SofaImportPanel'
 
 const POSITION_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 }
@@ -90,7 +90,6 @@ export default async function NotesPage({
         </div>
         <div className="flex items-start gap-2 flex-wrap">
           <ComputeAllButton />
-          <EspnAutoButton />
         </div>
       </div>
 
@@ -190,7 +189,6 @@ export default async function NotesPage({
             >
               Enregistrer toutes les notes
             </button>
-            <EspnMatchButton matchId={matchId} />
           </div>
         </form>
       )}
