@@ -338,7 +338,6 @@ export default function PickClient({
   function handleBonusChange(val: string) {
     setTroisHommePlayer(null)
     setTroisHommeTeam(null)
-    const selectedBonusType = (userBonuses ?? []).find(ub => ub.id === val)?.bonus_type
     if (val !== 'star') setBonusPlayer(null)
     setActiveBonusId(val || null)
   }
