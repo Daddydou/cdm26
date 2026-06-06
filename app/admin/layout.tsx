@@ -1,10 +1,11 @@
 import Link from 'next/link'
 
 const NAV = [
-  { href: '/admin',          label: 'Dashboard' },
-  { href: '/admin/matchs',   label: 'Matchs' },
-  { href: '/admin/notes',    label: 'Notes' },
-  { href: '/admin/joueurs',  label: 'Joueurs' },
+  { href: '/admin',                    label: 'Dashboard' },
+  { href: '/admin/matchs',             label: 'Matchs' },
+  { href: '/admin/notes',              label: 'Notes' },
+  { href: '/admin/import-sofascore',   label: 'SofaScore' },
+  { href: '/admin/joueurs',            label: 'Joueurs' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

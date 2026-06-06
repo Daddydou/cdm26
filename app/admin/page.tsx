@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 const SECTIONS = [
-  { href: '/admin/matchs',  icon: '📅', label: 'Matchs',  desc: 'Créer, modifier, calculer les points' },
-  { href: '/admin/notes',   icon: '📝', label: 'Notes',   desc: 'Saisir les notes FotMob par match' },
-  { href: '/admin/joueurs', icon: '👤', label: 'Joueurs', desc: 'Gérer la liste des joueurs par nation' },
+  { href: '/admin/matchs',           icon: '📅', label: 'Matchs',     desc: 'Créer, modifier, calculer les points' },
+  { href: '/admin/notes',            icon: '📝', label: 'Notes',      desc: 'Saisir les notes FotMob par match' },
+  { href: '/admin/import-sofascore', icon: '🌐', label: 'SofaScore',  desc: 'Importer les notes depuis le navigateur' },
+  { href: '/admin/joueurs',          icon: '👤', label: 'Joueurs',    desc: 'Gérer la liste des joueurs par nation' },
 ]
 
 export default async function AdminDashboard() {
