@@ -7,6 +7,7 @@ const BYPASS_PATHS = [
   '/inscription',
   '/auth/callback',
   '/inscription/completer',
+  '/api/admin/import-from-browser',
 ]
 
 export async function middleware(request: NextRequest) {
