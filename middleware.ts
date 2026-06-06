@@ -8,6 +8,7 @@ const BYPASS_PATHS = [
   '/auth/callback',
   '/inscription/completer',
   '/api/admin/import-from-browser',
+  '/guide',
 ]
 
 export async function middleware(request: NextRequest) {
