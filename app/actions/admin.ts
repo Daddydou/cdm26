@@ -84,7 +84,6 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     const bd              = pick.bonus_data as Record<string, unknown> | null
     const bonusPlayerId   = pick.bonus_player_id
     const isBouclier      = pick.bonus_type === 'bouclier'
-    const isCapitaineBis  = pick.bonus_type === 'capitaine_bis'
     const isDoubleMise    = pick.bonus_type === 'double_mise'
     const isSniper        = pick.bonus_type === 'sniper'
     const isPasseur       = pick.bonus_type === 'passeur_genie'
@@ -108,7 +107,7 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
       let rating = r?.fotmob_rating ?? 0
 
       if (isBouclier && rating < 5) rating = 5
-      if (id === bonusPlayerId)      rating *= isCapitaineBis ? 2 : 1.5
+      if (id === bonusPlayerId)      rating *= 2
 
       total += rating
 

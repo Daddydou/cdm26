@@ -53,10 +53,9 @@ const BONUS_META: Record<string, { icon: string; name: string; desc: string }> =
   sniper:          { icon: '🎯',  name: 'Sniper',             desc: '+3 pts par buteur' },
   passeur_genie:   { icon: '🎪',  name: 'Passeur de Génie',  desc: '+3 pts par passeur décisif' },
   mur:             { icon: '🧱',  name: 'Mur',                desc: '+5 pts si gardien arrête un pénalty' },
-  capitaine_bis:   { icon: '👑',  name: 'Capitaine Bis',      desc: 'Joueur ×1.5 devient ×2' },
   espion:          { icon: '🕵️', name: 'Espion',             desc: 'Picks adverses visibles avant le match' },
   all_in:          { icon: '🎲',  name: 'All-In',             desc: 'Mise sur sa performance' },
-  joueur_x1_5:     { icon: '⭐',  name: 'Joueur ×1.5',        desc: 'Un joueur avec note ×1.5' },
+  joueur_x1_5:     { icon: '⭐',  name: 'Joueur ×2',          desc: 'Un joueur avec note ×2' },
 }
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -75,7 +74,7 @@ function computeEffectivePoints(
   for (const id of ids) {
     if (!id) continue
     const rating = ratingsMap[id]?.fotmob_rating ?? 0
-    total += id === pick.bonus_player_id ? rating * 1.5 : rating
+    total += id === pick.bonus_player_id ? rating * 2 : rating
   }
   return Math.round(total * multiplier * 10) / 10
 }

@@ -114,7 +114,6 @@ const BONUS_META: Record<string, { icon: string; name: string; desc: string }> =
   sniper:          { icon: '🎯', name: 'Sniper',           desc: 'Si un de vos joueurs marque, +3 pts' },
   passeur_genie:   { icon: '🎪', name: 'Passeur de Génie', desc: 'Si un de vos joueurs fait une passe décisive, +3 pts' },
   mur:             { icon: '🧱', name: 'Mur',              desc: "Si votre gardien arrête un pénalty, +5 pts" },
-  capitaine_bis:   { icon: '👑', name: 'Capitaine Bis',    desc: 'Votre joueur bonus sera ×2 au lieu de ×1.5' },
   espion:          { icon: '🕵️', name: 'Espion',           desc: 'Vous verrez les picks des autres participants avant le début du match' },
   all_in:          { icon: '🎲', name: 'All-In',           desc: 'Misez entre 1 et 10 pts de votre total sur ce match' },
 }
@@ -276,7 +275,7 @@ export default function PickClient({
   const [selB, setSelB] = useState<string[]>(() =>
     [existingPick?.player_b1_id, existingPick?.player_b2_id].filter(Boolean) as string[]
   )
-  // Joueur bonus ×1.5
+  // Joueur bonus ×2
   const [bonusPlayer, setBonusPlayer] = useState<string | null>(existingPick?.bonus_player_id ?? null)
 
   // Bonus de match
@@ -313,7 +312,7 @@ export default function PickClient({
   const allPlayers = [...playersA, ...playersB]
   const remaining = (2 - selA.length) + (2 - selB.length)
 
-  // 'star' = option permanente ×1.5, sinon UUID cdm_user_bonuses
+  // 'star' = option permanente ×2, sinon UUID cdm_user_bonuses
   const activeBonus = (activeBonusId && activeBonusId !== 'star')
     ? (userBonuses ?? []).find(ub => ub.id === activeBonusId) ?? null
     : null
@@ -340,8 +339,7 @@ export default function PickClient({
     setTroisHommePlayer(null)
     setTroisHommeTeam(null)
     const selectedBonusType = (userBonuses ?? []).find(ub => ub.id === val)?.bonus_type
-    // Conserve le joueur ×1.5 quand on bascule entre 'star' et 'capitaine_bis'
-    if (val !== 'star' && selectedBonusType !== 'capitaine_bis') setBonusPlayer(null)
+    if (val !== 'star') setBonusPlayer(null)
     setActiveBonusId(val || null)
   }
 
@@ -412,7 +410,7 @@ export default function PickClient({
           </p>
           {!isReadOnly && (
             <p className="text-center text-[11px] text-zinc-600">
-              Choisissez 2 joueurs par équipe · 1 joueur bonus ×1.5 · 1 bonus optionnel
+              Choisissez 2 joueurs par équipe · 1 joueur bonus ×2 · 1 bonus optionnel
             </p>
           )}
         </div>
@@ -440,10 +438,10 @@ export default function PickClient({
           onToggle={toggleSelB}
         />
 
-        {/* ══ Bonus & Joueur ×1.5 (section unifiée) ══ */}
+        {/* ══ Bonus & Joueur ×2 (section unifiée) ══ */}
         {!isReadOnly && (
           <section className="px-4 py-5 border-b border-zinc-800/50">
-            <h2 className="text-sm font-bold text-zinc-100 mb-1">Bonus & Joueur ×1.5</h2>
+            <h2 className="text-sm font-bold text-zinc-100 mb-1">Bonus & Joueur ×2</h2>
             <p className="text-xs text-zinc-500 mb-3">1 option par match — optionnel</p>
 
             {/* ── Dropdown ── */}
@@ -455,7 +453,7 @@ export default function PickClient({
               >
                 <option value="">Aucun bonus</option>
                 {(6 - x15Used) > 0 && (
-                  <option value="star">⭐ Joueur ×1.5 ({6 - x15Used}/6 restants)</option>
+                  <option value="star">⭐ Joueur ×2 ({6 - x15Used}/6 restants)</option>
                 )}
                 {(userBonuses ?? []).map(ub => {
                   const meta = BONUS_META[ub.bonus_type]
@@ -474,11 +472,11 @@ export default function PickClient({
               </div>
             </div>
 
-            {/* ── ⭐ Joueur ×1.5 / 👑 Capitaine Bis — sélection parmi les 4 joueurs ── */}
-            {(activeBonusId === 'star' || activeBonusType === 'capitaine_bis') && (
+            {/* ── ⭐ Joueur ×2 — sélection parmi les 4 joueurs ── */}
+            {activeBonusId === 'star' && (
               <div className="mt-3 bg-yellow-950/20 border border-yellow-800/30 rounded-xl p-4 space-y-3">
                 <p className="text-xs text-yellow-300 font-medium">
-                  Désignez le joueur dont la note sera {activeBonusType === 'capitaine_bis' ? '×2' : '×1.5'} :
+                  Désignez le joueur dont la note sera ×2 :
                 </p>
                 {canSubmit ? (
                   <div className="grid grid-cols-2 gap-2">
@@ -502,7 +500,7 @@ export default function PickClient({
                           <div className="flex-1 min-w-0">
                             <p className={`text-xs font-semibold truncate leading-tight ${isStar ? 'text-yellow-200' : 'text-zinc-300'}`}>{p.name}</p>
                             <p className={`text-[9px] mt-0.5 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
-                              {POS_LABEL[p.position]}{isStar && <span className="ml-1 text-yellow-400 font-bold">{activeBonusType === 'capitaine_bis' ? '×2' : '×1.5'}</span>}
+                              {POS_LABEL[p.position]}{isStar && <span className="ml-1 text-yellow-400 font-bold">×2</span>}
                             </p>
                           </div>
                         </button>
@@ -511,7 +509,7 @@ export default function PickClient({
                   </div>
                 ) : (
                   <p className="text-xs text-zinc-600 italic">
-                    Sélectionnez vos 4 joueurs d&apos;abord pour désigner le joueur ×1.5
+                    Sélectionnez vos 4 joueurs d&apos;abord pour désigner le joueur ×2
                   </p>
                 )}
               </div>

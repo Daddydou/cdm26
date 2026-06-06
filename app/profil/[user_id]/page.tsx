@@ -22,7 +22,6 @@ const BONUS_META: Record<string, { icon: string; name: string }> = {
   sniper:          { icon: '🎯', name: 'Sniper' },
   passeur_genie:   { icon: '🎪', name: 'Passeur de Génie' },
   mur:             { icon: '🧱', name: 'Mur' },
-  capitaine_bis:   { icon: '👑', name: 'Capitaine Bis' },
   espion:          { icon: '🕵️', name: 'Espion' },
   all_in:          { icon: '🎲', name: 'All-In' },
 }
