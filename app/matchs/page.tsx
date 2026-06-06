@@ -92,6 +92,9 @@ export default async function MatchsPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
+        <a href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white text-sm mb-4">
+          ← Retour
+        </a>
         {matches.length === 0 ? (
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-10 text-center">
             <p className="text-3xl mb-3">📅</p>
