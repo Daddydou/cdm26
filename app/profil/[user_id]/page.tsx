@@ -33,18 +33,16 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type PlayerInfo = { name: string; position: string } | null
+type PlayerInfo = { id: string; name: string; position: string } | null
 
 type PickData = {
   id: string
   bonus_type: string | null
   bonus_player_id: string | null
+  bonus_player: { id: string; name: string } | null
   points_finaux: number | null
   points_bruts: number | null
-  player_a1_id: string | null
-  player_a2_id: string | null
-  player_b1_id: string | null
-  player_b2_id: string | null
+  is_locked: boolean | null
   player_a1: PlayerInfo
   player_a2: PlayerInfo
   player_b1: PlayerInfo
@@ -97,22 +95,23 @@ export default async function ProfilPage({ params }: { params: { user_id: string
       .select('id, total_points')
       .order('total_points', { ascending: false, nullsFirst: false }),
 
-    supabase
+    supabaseAdmin
       .from('cdm_picks')
       .select(`
-        id, bonus_type, bonus_player_id, points_finaux, points_bruts,
-        player_a1_id, player_a2_id, player_b1_id, player_b2_id,
-        player_a1:cdm_players!player_a1_id(name, position),
-        player_a2:cdm_players!player_a2_id(name, position),
-        player_b1:cdm_players!player_b1_id(name, position),
-        player_b2:cdm_players!player_b2_id(name, position),
+        id, points_finaux, points_bruts, bonus_type, bonus_player_id, is_locked,
         match:cdm_matches!match_id(
           id, kickoff_at, phase, points_multiplier, status, score_a, score_b,
           nation_a:cdm_nations!nation_a_id(name, code),
           nation_b:cdm_nations!nation_b_id(name, code)
-        )
+        ),
+        player_a1:cdm_players!player_a1_id(id, name, position),
+        player_a2:cdm_players!player_a2_id(id, name, position),
+        player_b1:cdm_players!player_b1_id(id, name, position),
+        player_b2:cdm_players!player_b2_id(id, name, position),
+        bonus_player:cdm_players!bonus_player_id(id, name)
       `)
-      .eq('user_id', params.user_id),
+      .eq('user_id', params.user_id)
+      .order('created_at', { ascending: false }),
   ])
 
   console.log('[profil] user_id param:', params.user_id)
@@ -143,7 +142,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   // Notes FotMob — une seule requête croisée match×joueur
   const matchIds    = [...new Set(picks.map(p => p.match?.id).filter(Boolean) as string[])]
   const allPlayerIds = [...new Set(
-    picks.flatMap(p => [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id])
+    picks.flatMap(p => [p.player_a1?.id, p.player_a2?.id, p.player_b1?.id, p.player_b2?.id])
       .filter(Boolean) as string[]
   )]
 
@@ -262,10 +261,10 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                 const bonus      = pick.bonus_type ? BONUS_META[pick.bonus_type] : null
 
                 const players = [
-                  { id: pick.player_a1_id, info: pick.player_a1 },
-                  { id: pick.player_a2_id, info: pick.player_a2 },
-                  { id: pick.player_b1_id, info: pick.player_b1 },
-                  { id: pick.player_b2_id, info: pick.player_b2 },
+                  { id: pick.player_a1?.id ?? null, info: pick.player_a1 },
+                  { id: pick.player_a2?.id ?? null, info: pick.player_a2 },
+                  { id: pick.player_b1?.id ?? null, info: pick.player_b1 },
+                  { id: pick.player_b2?.id ?? null, info: pick.player_b2 },
                 ].filter(p => p.info != null)
 
                 return (
@@ -311,42 +310,39 @@ export default async function ProfilPage({ params }: { params: { user_id: string
 
                     {/* Joueurs + bonus */}
                     <div className="px-4 pb-3.5 space-y-2">
-                      {isFinished ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {players.map(({ id, info }) => {
-                            if (!info) return null
-                            const rKey   = `${m.id}:${id}`
-                            const r      = ratingsMap[rKey]
-                            const isStar = !!id && id === pick.bonus_player_id
-                            const rating = r?.fotmob_rating
+                      <div className="flex flex-wrap gap-1.5">
+                        {players.map(({ id, info }) => {
+                          if (!info) return null
+                          const rKey   = `${m.id}:${id}`
+                          const r      = isFinished ? ratingsMap[rKey] : undefined
+                          const isStar = !!id && id === pick.bonus_player_id
+                          const rating = r?.fotmob_rating
 
-                            return (
-                              <span
-                                key={id ?? info.name}
-                                className={[
-                                  'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
-                                  isStar
-                                    ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
-                                    : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
-                                ].join(' ')}
-                              >
-                                {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-                                <span className="text-[10px] text-zinc-600">{POS[info.position] ?? info.position}</span>
-                                <span className="truncate max-w-[72px]">{info.name}</span>
-                                {rating != null
+                          return (
+                            <span
+                              key={id ?? info.name}
+                              className={[
+                                'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
+                                isStar
+                                  ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
+                                  : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
+                              ].join(' ')}
+                            >
+                              {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
+                              <span className="text-[10px] text-zinc-600">{POS[info.position] ?? info.position}</span>
+                              <span className="truncate max-w-[72px]">{info.name}</span>
+                              {isFinished && (
+                                rating != null
                                   ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
                                   : <span className="text-zinc-600 text-[10px]">–</span>
-                                }
-                                {(r?.goals ?? 0) > 0 && <span className="text-[10px]">⚽</span>}
-                                {(r?.assists ?? 0) > 0 && <span className="text-[10px]">🅰️</span>}
-                                {(r?.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-zinc-600 italic">En attente des notes…</p>
-                      )}
+                              )}
+                              {(r?.goals ?? 0) > 0 && <span className="text-[10px]">⚽</span>}
+                              {(r?.assists ?? 0) > 0 && <span className="text-[10px]">🅰️</span>}
+                              {(r?.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
+                            </span>
+                          )
+                        })}
+                      </div>
 
                       {bonus && (
                         <div>
