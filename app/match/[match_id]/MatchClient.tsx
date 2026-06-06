@@ -46,16 +46,17 @@ export type MatchData = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BONUS_META: Record<string, { icon: string; name: string }> = {
-  double_mise:     { icon: '⚡', name: 'Double Mise' },
-  troisieme_homme: { icon: '👤', name: 'Troisième Homme' },
-  bouclier:        { icon: '🛡️', name: 'Bouclier' },
-  sniper:          { icon: '🎯', name: 'Sniper' },
-  passeur_genie:   { icon: '🎪', name: 'Passeur de Génie' },
-  mur:             { icon: '🧱', name: 'Mur' },
-  capitaine_bis:   { icon: '👑', name: 'Capitaine Bis' },
-  espion:          { icon: '🕵️', name: 'Espion' },
-  all_in:          { icon: '🎲', name: 'All-In' },
+const BONUS_META: Record<string, { icon: string; name: string; desc: string }> = {
+  double_mise:     { icon: '⚡',  name: 'Double Mise',        desc: 'Points ×2' },
+  troisieme_homme: { icon: '👤',  name: 'Troisième Homme',    desc: '+1 joueur bonus' },
+  bouclier:        { icon: '🛡️', name: 'Bouclier',           desc: 'Notes < 5 remontées à 5' },
+  sniper:          { icon: '🎯',  name: 'Sniper',             desc: '+3 pts par buteur' },
+  passeur_genie:   { icon: '🎪',  name: 'Passeur de Génie',  desc: '+3 pts par passeur décisif' },
+  mur:             { icon: '🧱',  name: 'Mur',                desc: '+5 pts si gardien arrête un pénalty' },
+  capitaine_bis:   { icon: '👑',  name: 'Capitaine Bis',      desc: 'Joueur ×1.5 devient ×2' },
+  espion:          { icon: '🕵️', name: 'Espion',             desc: 'Picks adverses visibles avant le match' },
+  all_in:          { icon: '🎲',  name: 'All-In',             desc: 'Mise sur sa performance' },
+  joueur_x1_5:     { icon: '⭐',  name: 'Joueur ×1.5',        desc: 'Un joueur avec note ×1.5' },
 }
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -164,6 +165,36 @@ function PickCard({
         </div>
       )}
     </div>
+  )
+}
+
+// ─── BonusLegend ──────────────────────────────────────────────────────────────
+
+function BonusLegend({ picks }: { picks: PickRow[] }) {
+  const usedTypes = [...new Set(picks.map(p => p.bonus_type).filter(Boolean))] as string[]
+  if (usedTypes.length === 0) return null
+
+  return (
+    <section>
+      <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+        Légende
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        {usedTypes.map(type => {
+          const meta = BONUS_META[type]
+          if (!meta) return null
+          return (
+            <div key={type} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+              <span className="text-base leading-none flex-shrink-0">{meta.icon}</span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-zinc-300 leading-tight">{meta.name}</p>
+                <p className="text-[10px] text-zinc-500 leading-tight">{meta.desc}</p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -324,6 +355,11 @@ export default function MatchClient({
             ))}
           </div>
         </section>
+      )}
+
+      {/* ── Légende des bonus ── */}
+      {(isFinished || isOngoing) && rankedPicks.length > 0 && (
+        <BonusLegend picks={rankedPicks} />
       )}
 
       {/* ── Aucun pick ── */}
