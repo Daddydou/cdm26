@@ -129,7 +129,7 @@ export default function ImportSofascorePage() {
 
     try {
       const [sofaRes, supabase] = await Promise.all([
-        fetch(`https://api.sofascore.com/api/v1/sport/football/scheduled-events/${date}`),
+        fetch(`/api/admin/sofascore-proxy?path=sport/football/scheduled-events/${date}`),
         Promise.resolve(createClient()),
       ])
 
@@ -184,7 +184,7 @@ export default function ImportSofascorePage() {
     setImport(sofa.eventId, { phase: 'fetching' })
 
     try {
-      const res = await fetch(`https://api.sofascore.com/api/v1/event/${sofa.eventId}/lineups`)
+      const res = await fetch(`/api/admin/sofascore-proxy?path=event/${sofa.eventId}/lineups`)
       if (!res.ok) throw new Error(`Lineups HTTP ${res.status}`)
       const data = await res.json() as Record<string, unknown>
 
