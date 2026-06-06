@@ -128,8 +128,9 @@ export default function ImportSofascorePage() {
     setImports({})
 
     try {
+      const sofaUrl = `https://api.sofascore.com/api/v1/sport/football/scheduled-events/${date}`
       const [sofaRes, supabase] = await Promise.all([
-        fetch(`/api/admin/sofascore-proxy?path=sport/football/scheduled-events/${date}`),
+        fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(sofaUrl)}`),
         Promise.resolve(createClient()),
       ])
 
@@ -150,10 +151,11 @@ export default function ImportSofascorePage() {
       }))
 
       if (!sofaRes.ok) {
-        throw new Error(`SofaScore HTTP ${sofaRes.status} — ${await sofaRes.text()}`)
+        throw new Error(`Proxy HTTP ${sofaRes.status}`)
       }
 
-      const sofaData = await sofaRes.json() as { events?: Record<string, unknown>[] }
+      const wrapper = await sofaRes.json() as { contents: string }
+      const sofaData = JSON.parse(wrapper.contents) as { events?: Record<string, unknown>[] }
       const events = sofaData.events ?? []
 
       const cdmEvents = events.filter(e => {
@@ -184,9 +186,11 @@ export default function ImportSofascorePage() {
     setImport(sofa.eventId, { phase: 'fetching' })
 
     try {
-      const res = await fetch(`/api/admin/sofascore-proxy?path=event/${sofa.eventId}/lineups`)
-      if (!res.ok) throw new Error(`Lineups HTTP ${res.status}`)
-      const data = await res.json() as Record<string, unknown>
+      const sofaUrl2 = `https://api.sofascore.com/api/v1/event/${sofa.eventId}/lineups`
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(sofaUrl2)}`)
+      if (!res.ok) throw new Error(`Lineups proxy HTTP ${res.status}`)
+      const wrapper2 = await res.json() as { contents: string }
+      const data = JSON.parse(wrapper2.contents) as Record<string, unknown>
 
       const ratings: PlayerRating[] = []
       for (const side of ['home', 'away'] as const) {
