@@ -98,6 +98,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
   console.log('[pick/page] 3b. existingPick:', JSON.stringify(pickRes.data), '| error:', (pickRes as any).error?.message)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3c. usedPlayers count:', usedRes.data?.length, '| error:', (usedRes as any).error?.message)
+  console.log('[pick/page] usedPlayers raw:', usedRes.data)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   console.log('[pick/page] 3d. bonuses count:', bonusRes.data?.length, '| error:', (bonusRes as any).error?.message, (bonusRes as any).error?.code)
   console.log('[pick/page] 3d. cdmUser.id used for bonus query:', cdmUser?.id ?? 'null')
@@ -107,6 +108,7 @@ export default async function PickPage({ params }: { params: { match_id: string 
     .map((r: { player_id: string }) => r.player_id)
 
   console.log('[pick/page] usedPlayerIds count:', usedPlayerIds.length, '| ids:', usedPlayerIds)
+  console.log('[pick/page] usedPlayerIds:', [...usedPlayerIds])
 
   // ── Bug 2 : Espion — picks des autres si bonus actif et match pas encore locké ──
   const existingPick = pickRes.data ?? null
