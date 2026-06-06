@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>SofaScore Fetcher — CDM26</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #111; color: #e4e4e7; padding: 24px; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 1.2rem; margin-bottom: 16px; color: #a1a1aa; }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+    input { background: #27272a; border: 1px solid #3f3f46; color: #e4e4e7; padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; }
+    button { background: #16a34a; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    button:hover { background: #15803d; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    #status { font-size: 0.85rem; color: #a1a1aa; margin-bottom: 12px; min-height: 20px; }
+    #status.error { color: #f87171; }
+    #status.ok { color: #4ade80; }
+    pre { background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; padding: 12px; font-size: 0.75rem; overflow: auto; max-height: 500px; white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+
+<h1>⚽ SofaScore Fetcher — CDM26</h1>
+
+<div class="row">
+  <input id="date" type="date" value="" />
+  <button id="btn" onclick="fetchData()">Récupérer les notes</button>
+</div>
+
+<div id="status">En attente…</div>
+<pre id="output"></pre>
+
+<script>
+  // Défaut = aujourd'hui
+  const todayEl = document.getElementById('date')
+  todayEl.value = new Date().toISOString().slice(0, 10)
+
+  function setStatus(msg, type = '') {
+    const el = document.getElementById('status')
+    el.textContent = msg
+    el.className = type
+  }
+
+  async function fetchData() {
+    const date = document.getElementById('date').value
+    if (!date) { setStatus('Choisis une date', 'error'); return }
+
+    document.getElementById('btn').disabled = true
+    document.getElementById('output').textContent = ''
+    setStatus('⏳ Récupération des matchs CdM du ' + date + '…')
+
+    try {
+      // ── Étape 1 : matchs du jour ──────────────────────────────────────────
+      const res1 = await fetch(`https://api.sofascore.com/api/v1/sport/football/scheduled-events/${date}`)
+      if (!res1.ok) throw new Error('SofaScore scheduled-events : HTTP ' + res1.status)
+      const data1 = await res1.json()
+
+      // Filtre matchs CdM (uniqueTournament.id === 16)
+      const cdmMatches = (data1.events ?? []).filter(e =>
+        e.tournament?.uniqueTournament?.id === 16
+      )
+
+      if (cdmMatches.length === 0) {
+        setStatus('Aucun match CdM trouvé pour le ' + date + ' (sur ' + (data1.events?.length ?? 0) + ' matchs total)', 'error')
+        document.getElementById('output').textContent = JSON.stringify(
+          (data1.events ?? []).slice(0, 5).map(e => ({
+            home: e.homeTeam?.name, away: e.awayTeam?.name,
+            tournament: e.tournament?.uniqueTournament?.name + ' (id=' + e.tournament?.uniqueTournament?.id + ')'
+          })), null, 2
+        )
+        return
+      }
+
+      setStatus('⏳ ' + cdmMatches.length + ' match(s) CdM — récupération des lineups…')
+
+      // ── Étape 2 : lineups + notes ─────────────────────────────────────────
+      const results = []
+
+      for (const match of cdmMatches) {
+        const statusType = match.status?.type
+        setStatus('⏳ ' + match.homeTeam?.name + ' vs ' + match.awayTeam?.name + ' [' + statusType + ']…')
+
+        const res2 = await fetch(`https://api.sofascore.com/api/v1/event/${match.id}/lineups`)
+        if (!res2.ok) {
+          results.push({ sofaId: match.id, home: match.homeTeam?.name, away: match.awayTeam?.name, error: 'HTTP ' + res2.status })
+          continue
+        }
+        const lineups = await res2.json()
+
+        // SofaScore retourne { home, away } ou { homeTeam, awayTeam }
+        const homeSide = lineups.home ?? lineups.homeTeam
+        const awaySide = lineups.away ?? lineups.awayTeam
+
+        const players = []
+        const sides = [
+          { side: homeSide, teamName: match.homeTeam?.name },
+          { side: awaySide, teamName: match.awayTeam?.name },
+        ]
+        for (const { side, teamName } of sides) {
+          for (const p of side?.players ?? []) {
+            players.push({
+              name:    p.player?.name,
+              team:    teamName,
+              rating:  p.statistics?.rating    ?? null,
+              goals:   p.statistics?.goals     ?? 0,
+              assists: p.statistics?.goalAssist ?? 0,
+              minutes: p.statistics?.minutesPlayed ?? 0,
+            })
+          }
+        }
+
+        results.push({
+          sofaId: match.id,
+          home:   match.homeTeam?.name,
+          away:   match.awayTeam?.name,
+          status: statusType,
+          players,
+        })
+      }
+
+      document.getElementById('output').textContent = JSON.stringify(results, null, 2)
+
+      // ── Étape 3 : envoi à l'API locale ───────────────────────────────────
+      setStatus('⏳ Envoi à http://localhost:3000…')
+
+      const res3 = await fetch('http://localhost:3000/api/admin/import-from-browser', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ date, matches: results }),
+      })
+
+      if (!res3.ok) {
+        const err = await res3.text()
+        throw new Error('API locale : HTTP ' + res3.status + ' — ' + err)
+      }
+
+      const summary = await res3.json()
+      setStatus(
+        '✅ Importé — ' + summary.matched + ' notes, ' + (summary.unmatched?.length ?? 0) + ' non matchés, ' + (summary.matchesProcessed ?? 0) + ' match(s)',
+        'ok'
+      )
+
+    } catch (err) {
+      setStatus('❌ ' + err.message, 'error')
+    } finally {
+      document.getElementById('btn').disabled = false
+    }
+  }
+</script>
+</body>
+</html>
