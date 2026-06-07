@@ -8,6 +8,8 @@ const BYPASS_PATHS = [
   '/auth/callback',
   '/inscription/completer',
   '/api/admin/import-from-browser',
+  '/api/admin/import-squads',
+  '/api/admin/clear-players',
   '/guide',
 ]
 
