@@ -44,7 +44,7 @@ function parseCsv(content: string): CsvRow[] {
   const keys = header.split(',') as (keyof CsvRow)[]
   return dataLines.map(line => {
     const values = line.split(',')
-    return Object.fromEntries(keys.map((k, i) => [k, values[i] ?? ''])) as CsvRow
+    return Object.fromEntries(keys.map((k, i) => [k, values[i] ?? ''])) as unknown as CsvRow
   })
 }
 
