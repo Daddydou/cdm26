@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 const BYPASS_PATHS = [
   '/connexion',
   '/auth/callback',
+  '/api/auth/',
   '/api/admin/import-from-browser',
   '/api/admin/import-squads',
   '/api/admin/clear-players',

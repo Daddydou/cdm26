@@ -3,10 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { createOrUpdatePlayerAuthId, ensureAdminCdmUser } from '@/app/actions/auth'
 
-const ADMIN_EMAIL = 'lolo.rms@gmail.com'
-const ADMIN_PW = 'CDM2026fantasy2026'
 const SHARED_PW = 'CDM2026'
 
 export default function ConnexionPage() {
@@ -29,44 +26,39 @@ export default function ConnexionPage() {
 
     async function checkAuth() {
       try {
+        // Vérifie la session depuis les cookies (sans appel réseau)
         const { data: { session } } = await supabase.auth.getSession()
         console.log('[auth] checkAuth: session?', !!session, session?.user?.id)
+
         if (session) {
           console.log('[auth] checkAuth: session valide → redirect /')
           router.replace('/')
           return
         }
 
-        const authenticated = localStorage.getItem('cdm26_authenticated')
+        // Pas de session → tente l'auto re-login depuis localStorage
         const savedIdentifier = localStorage.getItem('cdm26_identifier')
-        console.log('[auth] checkAuth: localStorage', { authenticated, savedIdentifier })
+        console.log('[auth] checkAuth: savedIdentifier', savedIdentifier)
 
-        if (authenticated === 'true' && savedIdentifier) {
-          if (savedIdentifier === ADMIN_EMAIL) {
-            console.log('[auth] checkAuth: auto re-login admin')
-            const { error } = await supabase.auth.signInWithPassword({
-              email: ADMIN_EMAIL,
-              password: ADMIN_PW,
-            })
-            console.log('[auth] checkAuth: admin re-login result', error?.message ?? 'ok')
-            if (!error) {
-              console.log('[auth] checkAuth: admin re-login ok → redirect /')
-              router.replace('/')
-              return
-            }
-          } else {
-            console.log('[auth] checkAuth: auto re-login joueur', savedIdentifier)
-            const { data, error: anonErr } = await supabase.auth.signInAnonymously()
-            console.log('[auth] checkAuth: signInAnonymously result', anonErr?.message ?? 'ok', data?.user?.id)
-            if (data.user) {
-              await createOrUpdatePlayerAuthId(savedIdentifier, data.user.id)
-              console.log('[auth] checkAuth: joueur re-login ok → redirect /')
-              router.replace('/')
-              return
-            }
+        if (savedIdentifier) {
+          setIdentifier(savedIdentifier)
+          console.log('[auth] checkAuth: auto re-login pour', savedIdentifier)
+
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: savedIdentifier, password: SHARED_PW }),
+          })
+          console.log('[auth] checkAuth: auto re-login status', res.status)
+
+          if (res.ok) {
+            console.log('[auth] checkAuth: auto re-login ok → redirect /')
+            router.replace('/')
+            return
           }
-          console.log('[auth] checkAuth: auto re-login échoué, on efface localStorage')
-          localStorage.removeItem('cdm26_authenticated')
+
+          const data = await res.json()
+          console.log('[auth] checkAuth: auto re-login échoué', data.error)
           localStorage.removeItem('cdm26_identifier')
         }
       } catch (err) {
@@ -84,88 +76,27 @@ export default function ConnexionPage() {
     setLoading(true)
 
     const id = identifier.trim()
-
-    if (!id) {
-      setError('Saisis ton identifiant')
-      setLoading(false)
-      return
-    }
-
-    if (password !== SHARED_PW) {
-      setError('Mot de passe incorrect')
-      setLoading(false)
-      return
-    }
-
-    const supabase = createClient()
-    console.log('[auth] submit: id =', id, '| admin?', id === ADMIN_EMAIL)
+    console.log('[auth] submit: id =', id)
 
     try {
-      if (id === ADMIN_EMAIL) {
-        console.log('[auth] admin: trying signInWithPassword')
-        const { data: signInData, error: firstError } = await supabase.auth.signInWithPassword({
-          email: ADMIN_EMAIL,
-          password: ADMIN_PW,
-        })
-        console.log('[auth] admin: signInWithPassword result', firstError?.message ?? 'ok', signInData?.user?.id)
+      console.log('[auth] submit: POST /api/auth/login')
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: id, password }),
+      })
 
-        let adminError = firstError
-        if (firstError) {
-          console.log('[auth] admin: trying signUp (first time)')
-          const { error: signUpError } = await supabase.auth.signUp({ email: ADMIN_EMAIL, password: ADMIN_PW })
-          console.log('[auth] admin: signUp result', signUpError?.message ?? 'ok')
+      console.log('[auth] submit: status', res.status)
+      const data = await res.json()
+      console.log('[auth] submit: body', data)
 
-          console.log('[auth] admin: retry signInWithPassword')
-          const retry = await supabase.auth.signInWithPassword({
-            email: ADMIN_EMAIL,
-            password: ADMIN_PW,
-          })
-          console.log('[auth] admin: retry result', retry.error?.message ?? 'ok', retry.data?.user?.id)
-          adminError = retry.error
-        }
-
-        if (adminError) {
-          console.error('[auth] admin: connexion échouée', adminError.message)
-          setError('Erreur de connexion admin')
-          setLoading(false)
-          return
-        }
-
-        const { data: { user } } = await supabase.auth.getUser()
-        console.log('[auth] admin: getUser', user?.id)
-        if (user) {
-          console.log('[auth] admin: ensureAdminCdmUser start')
-          await ensureAdminCdmUser(user.id)
-          console.log('[auth] admin: ensureAdminCdmUser done')
-        }
-
-      } else {
-        console.log('[auth] player: trying signInAnonymously')
-        const { data, error } = await supabase.auth.signInAnonymously()
-        console.log('[auth] player: signInAnonymously result', error?.message ?? 'ok', data?.user?.id)
-
-        if (error || !data.user) {
-          console.error('[auth] player: signInAnonymously échoué', error?.message)
-          setError('Erreur de connexion, réessaie')
-          setLoading(false)
-          return
-        }
-
-        console.log('[auth] player: createOrUpdatePlayerAuthId', id, data.user.id)
-        const result = await createOrUpdatePlayerAuthId(id, data.user.id)
-        console.log('[auth] player: createOrUpdatePlayerAuthId result', result)
-
-        if (result.error) {
-          console.error('[auth] player: erreur cdm_users', result.error)
-          setError('Erreur lors de la connexion')
-          setLoading(false)
-          return
-        }
+      if (!res.ok) {
+        setError(data.error ?? 'Erreur de connexion')
+        setLoading(false)
+        return
       }
 
-      localStorage.setItem('cdm26_authenticated', 'true')
       localStorage.setItem('cdm26_identifier', id)
-
       console.log('[auth] redirecting to /')
       router.push('/')
     } catch (err) {
