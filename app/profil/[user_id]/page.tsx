@@ -79,8 +79,6 @@ type Player = {
 export default async function ProfilPage({ params }: { params: { user_id: string } }) {
   const supabase      = createClient()
   const supabaseAdmin = createAdminClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
   // Requêtes parallèles initiales
   const [profileRes, allUsersRes, picksRes] = await Promise.all([
     supabase
@@ -177,8 +175,6 @@ export default async function ProfilPage({ params }: { params: { user_id: string
     .filter(p => !usedIds.has(p.id))
     .sort((a, b) => (POS_ORDER[a.position] ?? 9) - (POS_ORDER[b.position] ?? 9))
 
-  const isMe = !!user && profile.auth_id === user.id
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
 
@@ -191,16 +187,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
           <span className="flex-1 text-sm font-semibold text-zinc-100 text-center truncate">
             {profile.username}
           </span>
-          {isMe ? (
-            <Link
-              href={`/profil/${profile.id}/edit`}
-              className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
-            >
-              Modifier
-            </Link>
-          ) : (
-            <div className="w-14" />
-          )}
+          <div className="w-14" />
         </div>
       </header>
 
