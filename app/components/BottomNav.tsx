@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const HIDDEN_ON = ['/connexion', '/inscription', '/auth/callback', '/inscription/completer']
+const HIDDEN_ON = ['/connexion', '/auth/callback']
 
 const TABS = [
   { href: '/',          label: 'Accueil',   icon: '🏠' },

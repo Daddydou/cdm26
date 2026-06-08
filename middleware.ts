@@ -4,9 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Ces routes passent sans aucune vérification d'auth ni création de client Supabase
 const BYPASS_PATHS = [
   '/connexion',
-  '/inscription',
   '/auth/callback',
-  '/inscription/completer',
   '/api/admin/import-from-browser',
   '/api/admin/import-squads',
   '/api/admin/clear-players',

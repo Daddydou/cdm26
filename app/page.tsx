@@ -134,7 +134,7 @@ export default async function HomePage() {
   // Redirige vers /inscription/completer uniquement si le user est authentifié
   // mais n'a pas de profil (PGRST116 = no rows, pas une erreur de colonne manquante)
   if (user && !me && meRes.error?.code === 'PGRST116') {
-    redirect('/inscription/completer')
+    redirect('/connexion')
   }
 
   // Picks de l'utilisateur (matchs à venir + récents)
