@@ -103,28 +103,29 @@ export default function ConnexionPage() {
     try {
       if (id === ADMIN_EMAIL) {
         console.log('[auth] admin: trying signInWithPassword')
-        let { data: signInData, error } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: firstError } = await supabase.auth.signInWithPassword({
           email: ADMIN_EMAIL,
           password: ADMIN_PW,
         })
-        console.log('[auth] admin: signInWithPassword result', error?.message ?? 'ok', signInData?.user?.id)
+        console.log('[auth] admin: signInWithPassword result', firstError?.message ?? 'ok', signInData?.user?.id)
 
-        if (error) {
+        let adminError = firstError
+        if (firstError) {
           console.log('[auth] admin: trying signUp (first time)')
           const { error: signUpError } = await supabase.auth.signUp({ email: ADMIN_EMAIL, password: ADMIN_PW })
           console.log('[auth] admin: signUp result', signUpError?.message ?? 'ok')
 
           console.log('[auth] admin: retry signInWithPassword')
-          const result = await supabase.auth.signInWithPassword({
+          const retry = await supabase.auth.signInWithPassword({
             email: ADMIN_EMAIL,
             password: ADMIN_PW,
           })
-          console.log('[auth] admin: retry result', result.error?.message ?? 'ok', result.data?.user?.id)
-          error = result.error
+          console.log('[auth] admin: retry result', retry.error?.message ?? 'ok', retry.data?.user?.id)
+          adminError = retry.error
         }
 
-        if (error) {
-          console.error('[auth] admin: connexion échouée', error.message)
+        if (adminError) {
+          console.error('[auth] admin: connexion échouée', adminError.message)
           setError('Erreur de connexion admin')
           setLoading(false)
           return
