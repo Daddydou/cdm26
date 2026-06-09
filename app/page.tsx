@@ -4,7 +4,7 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import NotificationButton from './components/NotificationButton'
-import { redirect } from 'next/navigation'
+import ClientRedirect from './components/ClientRedirect'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ export default async function HomePage() {
   const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
 
   if (user && !me && meRes.error?.code === 'PGRST116') {
-    redirect('/connexion')
+    return <ClientRedirect href="/connexion" />
   }
 
   // Picks de l'utilisateur (matchs à venir + récents)

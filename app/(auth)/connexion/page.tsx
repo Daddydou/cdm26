@@ -28,7 +28,8 @@ export default function ConnexionPage() {
           .single()
 
         if (!profile) {
-          await supabase.auth.signOut()
+          // scope:'local' efface les cookies sans appel réseau → évite le 403 si token expiré
+          await supabase.auth.signOut({ scope: 'local' })
         }
       }
     }
