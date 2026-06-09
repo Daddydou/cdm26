@@ -15,6 +15,7 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   // ── Auth ──
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   console.log('[savePick] auth.getUser:', user?.email ?? 'null', '| error:', authError?.message)
+  console.log('[picks] userId:', user?.id ?? null)
   if (!user) return { error: 'Non authentifié' }
 
   // ── FormData ──
@@ -59,6 +60,7 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
     .single()
 
   console.log('[savePick] 2. cdmUser:', cdmUser, '| error:', cdmUserError?.message)
+  console.log('[picks] user found:', cdmUser, cdmUserError?.message)
   if (!cdmUser) return { error: 'Profil utilisateur introuvable' }
 
   // ── 3. Valider que les joueurs appartiennent aux bonnes nations ──
