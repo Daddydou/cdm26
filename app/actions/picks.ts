@@ -57,7 +57,8 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
     .from('cdm_users')
     .select('id')
     .eq('auth_id', user.id)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
   console.log('[savePick] 2. cdmUser:', cdmUser, '| error:', cdmUserError?.message)
   console.log('[picks] user found:', cdmUser, cdmUserError?.message)
