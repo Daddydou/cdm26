@@ -272,11 +272,48 @@ export default function PickClient({
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       console.log('[PickClient] userId from getUser:', user?.id)
-      setUserId(user?.id ?? null)
+      if (!user?.id) return
+      setUserId(user.id)
+
+      // La session anonyme est dans localStorage — chargement du pick existant côté client
+      const { data: cdmUser } = await supabase
+        .from('cdm_users')
+        .select('id')
+        .eq('auth_id', user.id)
+        .maybeSingle()
+
+      if (!cdmUser) return
+
+      const { data: pick } = await supabase
+        .from('cdm_picks')
+        .select('player_a1_id, player_a2_id, player_b1_id, player_b2_id, bonus_player_id, bonus_type, bonus_data')
+        .eq('match_id', match.id)
+        .eq('user_id', cdmUser.id)
+        .maybeSingle()
+
+      if (!pick) return
+
+      setSelA([pick.player_a1_id, pick.player_a2_id].filter(Boolean) as string[])
+      setSelB([pick.player_b1_id, pick.player_b2_id].filter(Boolean) as string[])
+      setBonusPlayer(pick.bonus_player_id ?? null)
+
+      if (pick.bonus_type) {
+        const found = (userBonuses ?? []).find(ub => ub.bonus_type === pick.bonus_type)
+        setActiveBonusId(found?.id ?? null)
+
+        if (pick.bonus_type === 'troisieme_homme') {
+          const pid = (pick.bonus_data as Record<string, unknown>)?.player_id as string | undefined
+          if (pid) {
+            setTroisHommePlayer(pid)
+            if (playersA.some(p => p.id === pid)) setTroisHommeTeam('A')
+            else if (playersB.some(p => p.id === pid)) setTroisHommeTeam('B')
+          }
+        }
+      }
     })
-  }, [])
+  }, [match.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sélections principales
   const [selA, setSelA] = useState<string[]>(() =>
@@ -381,7 +418,7 @@ export default function PickClient({
         setError(result.error)
       } else {
         setToast('Picks enregistrés ! Bonne chance 🎉')
-        setTimeout(() => router.push('/'), 2000)
+        setTimeout(() => router.push('/matchs'), 2000)
       }
     })
   }
