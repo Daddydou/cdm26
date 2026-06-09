@@ -131,10 +131,8 @@ export default async function HomePage() {
   const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
   const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
 
-  // Session valide mais aucun cdm_users correspondant (auth_id stale, multi-appareil).
-  // On déconnecte pour casser la boucle /  → /connexion → / → ...
   if (user && !me && meRes.error?.code === 'PGRST116') {
-    redirect('/api/auth/signout')
+    redirect('/connexion')
   }
 
   // Picks de l'utilisateur (matchs à venir + récents)

@@ -17,6 +17,25 @@ export default function ConnexionPage() {
   const didCheck = useRef(false)
 
   useEffect(() => {
+    const clearStaleSession = async () => {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const { data: profile } = await supabase
+          .from('cdm_users')
+          .select('id')
+          .eq('auth_id', session.user.id)
+          .single()
+
+        if (!profile) {
+          await supabase.auth.signOut()
+        }
+      }
+    }
+    clearStaleSession()
+  }, [])
+
+  useEffect(() => {
     if (didCheck.current) return
     didCheck.current = true
 
