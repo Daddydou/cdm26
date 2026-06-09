@@ -7,16 +7,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 type PickState = { error: string | null }
 
 export async function savePick(prevState: PickState, formData: FormData): Promise<PickState> {
-  // Client user pour les lectures (auth + vérifications)
+  // Client user pour les lectures publiques (match, joueurs)
   const supabase = createClient()
-  // Client admin pour les écritures (bypasse RLS)
+  // Client admin pour les écritures et lookups qui bypassent RLS
   const admin = createAdminClient()
 
-  // ── Auth ──
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  console.log('[savePick] auth.getUser:', user?.email ?? 'null', '| error:', authError?.message)
-  console.log('[picks] userId:', user?.id ?? null)
-  if (!user) return { error: 'Non authentifié' }
+  // ── Auth : userId passé depuis le client (évite les problèmes de cookies SSR avec sessions anonymes) ──
+  const userId = (formData.get('user_auth_id') as string | null)?.trim() || null
+  console.log('[picks] userId:', userId)
+  if (!userId) return { error: 'Non authentifié' }
 
   // ── FormData ──
   const matchId      = formData.get('match_id')        as string
@@ -52,11 +51,10 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   }
 
   // ── 2. Profil CDM (cdm_users.id, pas auth.uid) ──
-  // Utilise admin pour bypasser RLS — les utilisateurs anonymes peuvent être bloqués en lecture
   const { data: cdmUser, error: cdmUserError } = await admin
     .from('cdm_users')
     .select('id')
-    .eq('auth_id', user.id)
+    .eq('auth_id', userId)
     .limit(1)
     .maybeSingle()
 

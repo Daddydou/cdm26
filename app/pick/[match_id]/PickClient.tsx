@@ -251,7 +251,7 @@ function TeamSection({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PickClient({
-  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly, x15Used, espionPicks,
+  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly, x15Used, espionPicks, userId,
 }: {
   match: MatchData
   playersA: Player[]
@@ -262,6 +262,7 @@ export default function PickClient({
   isReadOnly: boolean
   x15Used: number
   espionPicks?: EspionPick[] | null
+  userId: string | null
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -353,6 +354,7 @@ export default function PickClient({
 
     startTransition(async () => {
       const fd = new FormData()
+      fd.set('user_auth_id',    userId ?? '')
       fd.set('match_id',        match.id)
       fd.set('player_a1_id',    selA[0] ?? '')
       fd.set('player_a2_id',    selA[1] ?? '')
