@@ -3,8 +3,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const BYPASS_PATHS = [
   '/connexion',
+  '/inscription',
   '/auth/callback',
-  '/api/auth/',
+  '/inscription/completer',
+  '/api/auth/login',
+  '/api/auth/signout',
   '/api/admin/import-from-browser',
   '/api/admin/import-squads',
   '/api/admin/clear-players',
