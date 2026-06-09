@@ -51,7 +51,8 @@ export async function savePick(prevState: PickState, formData: FormData): Promis
   }
 
   // ── 2. Profil CDM (cdm_users.id, pas auth.uid) ──
-  const { data: cdmUser, error: cdmUserError } = await supabase
+  // Utilise admin pour bypasser RLS — les utilisateurs anonymes peuvent être bloqués en lecture
+  const { data: cdmUser, error: cdmUserError } = await admin
     .from('cdm_users')
     .select('id')
     .eq('auth_id', user.id)
