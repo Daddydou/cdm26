@@ -81,6 +81,12 @@ export default async function HomePage() {
     ? `nation_a_id.in.(${featuredIds.join(',')}),nation_b_id.in.(${featuredIds.join(',')})`
     : null
 
+  const nowParis = new Date()
+  const todayParis = formatInTimeZone(nowParis, 'Europe/Paris', 'yyyy-MM-dd')
+  const tomorrowDate = new Date(nowParis)
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+  const tomorrowParis = formatInTimeZone(tomorrowDate, 'Europe/Paris', 'yyyy-MM-dd')
+
   const [usersRes, picksRes, matchesRes, recentMatchesRes, meRes] = await Promise.all([
     supabase
       .from('cdm_users')
@@ -94,10 +100,15 @@ export default async function HomePage() {
     (() => {
       const q = supabase
         .from('cdm_matches')
-        .select('id, kickoff_at, status, score_a, score_b, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
+        .select(`
+          id, kickoff_at, status, score_a, score_b,
+          nation_a:cdm_nations!nation_a_id(name, code),
+          nation_b:cdm_nations!nation_b_id(name, code)
+        `)
         .eq('status', 'a_venir')
+        .gte('kickoff_at', `${todayParis}T00:00:00+02:00`)
+        .lte('kickoff_at', `${tomorrowParis}T23:59:59+02:00`)
         .order('kickoff_at', { ascending: true })
-        .limit(2)
       return nationFilter ? q.or(nationFilter) : q
     })(),
 
