@@ -20,4 +20,23 @@ export default withPWA({
   skipWaiting: true,
   cacheOnFrontEndNav: false,
   aggressiveFrontEndNavCaching: false,
+  // Exclut /pick/* et /api/* du cache SW — les Server Actions (POST) doivent passer au réseau
+  extendDefaultRuntimeCaching: true,
+  runtimeCaching: [
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith('/pick/'),
+      handler: 'NetworkOnly',
+      method: 'POST',
+    },
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+      handler: 'NetworkOnly',
+      method: 'POST',
+    },
+    {
+      urlPattern: ({ url }) => url.pathname.startsWith('/pick/'),
+      handler: 'NetworkOnly',
+      method: 'GET',
+    },
+  ],
 })(nextConfig)

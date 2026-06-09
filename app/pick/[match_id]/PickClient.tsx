@@ -272,9 +272,9 @@ export default function PickClient({
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      console.log('[PickClient] userId:', data.user?.id ?? null)
-      setUserId(data.user?.id ?? null)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      console.log('[PickClient] userId from getUser:', user?.id)
+      setUserId(user?.id ?? null)
     })
   }, [])
 
