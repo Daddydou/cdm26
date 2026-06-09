@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { savePick } from '@/app/actions/picks'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
@@ -251,7 +252,7 @@ function TeamSection({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PickClient({
-  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly, x15Used, espionPicks, userId,
+  match, playersA, playersB, existingPick, usedPlayerIds, userBonuses, isReadOnly, x15Used, espionPicks,
 }: {
   match: MatchData
   playersA: Player[]
@@ -262,12 +263,20 @@ export default function PickClient({
   isReadOnly: boolean
   x15Used: number
   espionPicks?: EspionPick[] | null
-  userId: string | null
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast]   = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      console.log('[PickClient] userId:', data.user?.id ?? null)
+      setUserId(data.user?.id ?? null)
+    })
+  }, [])
 
   // Sélections principales
   const [selA, setSelA] = useState<string[]>(() =>

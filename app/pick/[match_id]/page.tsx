@@ -161,7 +161,6 @@ export default async function PickPage({ params }: { params: { match_id: string 
       isReadOnly={isReadOnly}
       x15Used={x15Res.count ?? 0}
       espionPicks={espionPicks}
-      userId={user?.id ?? null}
     />
   )
 }
