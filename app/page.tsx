@@ -131,10 +131,10 @@ export default async function HomePage() {
   const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
   const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
 
-  // Redirige vers /inscription/completer uniquement si le user est authentifié
-  // mais n'a pas de profil (PGRST116 = no rows, pas une erreur de colonne manquante)
+  // Session valide mais aucun cdm_users correspondant (auth_id stale, multi-appareil).
+  // On déconnecte pour casser la boucle /  → /connexion → / → ...
   if (user && !me && meRes.error?.code === 'PGRST116') {
-    redirect('/connexion')
+    redirect('/api/auth/signout')
   }
 
   // Picks de l'utilisateur (matchs à venir + récents)
