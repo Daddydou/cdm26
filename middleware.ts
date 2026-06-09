@@ -58,17 +58,21 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/connexion', request.url))
     }
 
-    if (pathname.startsWith('/admin')) {
-      const { data: cdmUser } = await supabase
-        .from('cdm_users')
-        .select('is_admin')
-        .eq('auth_id', user.id)
-        .single()
+    // Vérifie le profil une fois pour toutes (évite la boucle session-stale dans page.tsx)
+    const { data: profile } = await supabase
+      .from('cdm_users')
+      .select('id, is_admin')
+      .eq('auth_id', user.id)
+      .single()
 
-      if (!cdmUser?.is_admin) {
-        console.log('[middleware] accès admin refusé pour', user.id)
-        return NextResponse.redirect(new URL('/', request.url))
-      }
+    if (!profile) {
+      console.log('[middleware] pas de profil cdm_users pour', user.id, '→ redirect /inscription/completer')
+      return NextResponse.redirect(new URL('/inscription/completer', request.url))
+    }
+
+    if (pathname.startsWith('/admin') && !profile.is_admin) {
+      console.log('[middleware] accès admin refusé pour', user.id)
+      return NextResponse.redirect(new URL('/', request.url))
     }
   } catch (err) {
     console.error('[middleware] exception →', pathname, err)
