@@ -24,6 +24,11 @@ export default withPWA({
   extendDefaultRuntimeCaching: true,
   runtimeCaching: [
     {
+      // Page d'accueil — dynamique et dépendante de la session, jamais en cache
+      urlPattern: /^\/(\?.*)?$/,
+      handler: 'NetworkOnly',
+    },
+    {
       urlPattern: /\/pick\//,
       handler: 'NetworkOnly',
     },
