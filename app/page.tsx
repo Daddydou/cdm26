@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
@@ -64,9 +65,13 @@ function Avatar({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function HomePage() {
-  const supabase = createClient()
+  const cookieStore = cookies()
+  const allCookies = cookieStore.getAll()
+  console.log('[page] cookies:', allCookies.map(c => c.name))
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createClient()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  console.log('[page] user:', user?.email, '| error:', userError?.message)
 
   // Nations vedettes à afficher sur la page d'accueil
   const { data: featuredNations } = await supabase
