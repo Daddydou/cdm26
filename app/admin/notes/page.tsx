@@ -20,7 +20,7 @@ export default async function NotesPage({
 }: {
   searchParams: { matchId?: string; saved?: string; error?: string }
 }) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { matchId, saved, error } = searchParams
 
   // Load matches (terminé + en cours)

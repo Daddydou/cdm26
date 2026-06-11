@@ -20,7 +20,7 @@ export default async function AdminMatchsPage({
 }: {
   searchParams: { msg?: string; error?: string }
 }) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: matches } = await supabase
     .from('cdm_matches')

@@ -77,7 +77,7 @@ type Player = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ProfilPage({ params }: { params: { user_id: string } }) {
-  const supabase      = createClient()
+  const supabase      = await createClient()
   const supabaseAdmin = createAdminClient()
   // Requêtes parallèles initiales
   const [profileRes, allUsersRes, picksRes] = await Promise.all([

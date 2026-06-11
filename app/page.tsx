@@ -69,7 +69,7 @@ export default async function HomePage() {
   const allCookies = cookieStore.getAll()
   console.log('[page] cookies:', allCookies.map(c => c.name))
 
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   console.log('[page] user:', user?.email, '| error:', userError?.message)
 

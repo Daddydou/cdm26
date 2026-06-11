@@ -18,7 +18,7 @@ export default async function JoueursPage({
 }: {
   searchParams: { msg?: string; error?: string }
 }) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const [playersRes, nationsRes] = await Promise.all([
     supabase

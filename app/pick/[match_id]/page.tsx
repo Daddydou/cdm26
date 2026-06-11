@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import PickClient from './PickClient'
 
 export default async function PickPage({ params }: { params: { match_id: string } }) {
-  const supabase      = createClient()
+  const supabase      = await createClient()
   const supabaseAdmin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 

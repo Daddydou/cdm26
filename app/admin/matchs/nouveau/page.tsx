@@ -19,7 +19,7 @@ export default async function NouveauMatchPage({
 }: {
   searchParams: { error?: string }
 }) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: nations } = await supabase
     .from('cdm_nations')
     .select('id, name')

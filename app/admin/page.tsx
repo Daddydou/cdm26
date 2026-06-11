@@ -9,7 +9,7 @@ const SECTIONS = [
 ]
 
 export default async function AdminDashboard() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const [matchesRes, usersRes, picksRes] = await Promise.all([
     supabase.from('cdm_matches').select('*', { count: 'exact', head: true }),

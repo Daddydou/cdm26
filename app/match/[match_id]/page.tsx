@@ -18,7 +18,7 @@ function isoFlag(code: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function MatchPage({ params }: { params: { match_id: string } }) {
-  const supabase      = createClient()
+  const supabase      = await createClient()
   const supabaseAdmin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 

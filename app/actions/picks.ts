@@ -8,7 +8,7 @@ type PickState = { error: string | null }
 
 export async function savePick(prevState: PickState, formData: FormData): Promise<PickState> {
   // Client user pour les lectures publiques (match, joueurs)
-  const supabase = createClient()
+  const supabase = await createClient()
   // Client admin pour les écritures et lookups qui bypassent RLS
   const admin = createAdminClient()
 

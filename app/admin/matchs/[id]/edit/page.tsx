@@ -28,7 +28,7 @@ export default async function EditMatchPage({
   params: { id: string }
   searchParams: { error?: string }
 }) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const [matchRes, nationsRes] = await Promise.all([
     supabase

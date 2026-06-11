@@ -27,7 +27,7 @@ function iso(code: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function ResultatsPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   // Nations vedettes
