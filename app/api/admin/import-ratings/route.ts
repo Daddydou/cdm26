@@ -48,6 +48,24 @@ function findPlayer(
     const byLast = players.filter(p => normalizeName(p.name).split(' ').at(-1) === last)
     if (byLast.length === 1) return byLast[0].id
   }
+  // Level 3 : initiale prénom ("Gutierrez B." → "Brian Gutiérrez")
+  const normParts = norm.split(/\s+/)
+  let initial: string | null = null
+  let lnPart:  string | null = null
+  for (const part of normParts) {
+    const s = part.replace('.', '')
+    if (s.length === 1) initial = s
+    else if (!lnPart)   lnPart  = s
+  }
+  if (initial && lnPart) {
+    const byInitial = players.filter(p => {
+      const pn    = normalizeName(p.name)
+      const parts = pn.split(/\s+/)
+      return pn.includes(lnPart!) && parts.some(w => w.startsWith(initial!))
+    })
+    if (byInitial.length >= 1) return byInitial[0].id
+  }
+
   return players.find(p => {
     const pn = normalizeName(p.name)
     return pn.includes(norm) || norm.includes(pn)
