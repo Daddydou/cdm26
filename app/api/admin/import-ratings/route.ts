@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeName } from '@/app/scripts/sofascore-ratings'
 import { fetch as undiciFetch } from 'undici'
 
@@ -54,10 +54,21 @@ function findPlayer(
   })?.id ?? null
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type PlayerInput = {
+  name: string; team: string; rating: number | null
+  goals: number; assists: number; minutes: number | null
+}
+type MatchInput = { sofaId: number; home: string; away: string; players: PlayerInput[] }
+type DbMatch    = { id: string; nation_a: { id: string; name: string }; nation_b: { id: string; name: string } }
+
 // ─── POST /api/admin/import-ratings ──────────────────────────────────────────
 
 export async function POST(request: Request) {
   let date: string
+  let bodyMatches: MatchInput[] | null = null
+
   try {
     const raw  = await request.text()
     const body = JSON.parse(raw)
@@ -66,6 +77,9 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Clé admin invalide' }, { status: 401, headers: CORS })
     }
     date = body.date
+    if (Array.isArray(body.matches) && body.matches.length > 0) {
+      bodyMatches = body.matches as MatchInput[]
+    }
   } catch {
     return Response.json({ error: 'Body JSON invalide' }, { status: 400, headers: CORS })
   }
@@ -75,7 +89,86 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
 
-  // 1. Matchs SofaScore du jour via undici
+  const { data: dbMatchesRaw } = await admin
+    .from('cdm_matches')
+    .select('id, nation_a:cdm_nations!nation_a_id(id, name), nation_b:cdm_nations!nation_b_id(id, name)')
+    .eq('status', 'termine')
+
+  const dbMatches = (dbMatchesRaw ?? []) as unknown as DbMatch[]
+
+  let totalMatched     = 0
+  const allUnmatched:   string[] = []
+  let matchesProcessed = 0
+
+  function findDbMatch(home: string, away: string): DbMatch | undefined {
+    const nh = normalizeName(home)
+    const na = normalizeName(away)
+    return dbMatches.find(m => {
+      const mna = normalizeName(m.nation_a?.name ?? '')
+      const mnb = normalizeName(m.nation_b?.name ?? '')
+      return (
+        (nh.includes(mna) || mna.includes(nh)) && (na.includes(mnb) || mnb.includes(na))
+      ) || (
+        (na.includes(mna) || mna.includes(na)) && (nh.includes(mnb) || mnb.includes(nh))
+      )
+    })
+  }
+
+  async function upsertPlayers(dbMatch: DbMatch, players: PlayerInput[], source: string) {
+    const { data: dbPlayers } = await admin
+      .from('cdm_players')
+      .select('id, name, nation_id')
+      .in('nation_id', [dbMatch.nation_a?.id, dbMatch.nation_b?.id].filter(Boolean))
+
+    const dbPl = (dbPlayers ?? []) as Array<{ id: string; name: string; nation_id: string }>
+
+    const upsertRows: Array<{
+      match_id: string; player_id: string; fotmob_rating: number | null
+      goals: number; assists: number; penalty_saved: boolean
+      minutes_played: number | null; source: string
+    }> = []
+
+    for (const p of players) {
+      const playerId = findPlayer(p.name, dbPl)
+      if (playerId) {
+        totalMatched++
+        upsertRows.push({
+          match_id:       dbMatch.id,
+          player_id:      playerId,
+          fotmob_rating:  p.rating,
+          goals:          p.goals,
+          assists:        p.assists,
+          penalty_saved:  false,
+          minutes_played: p.minutes,
+          source,
+        })
+      } else {
+        allUnmatched.push(`${p.name} [${p.team}]`)
+      }
+    }
+
+    if (upsertRows.length > 0) {
+      await admin
+        .from('cdm_player_ratings')
+        .upsert(upsertRows, { onConflict: 'player_id,match_id' })
+    }
+    matchesProcessed++
+  }
+
+  // ── Chemin 1 : données du bookmarklet ────────────────────────────────────────
+  if (bodyMatches) {
+    for (const m of bodyMatches) {
+      const dbMatch = findDbMatch(m.home, m.away)
+      if (!dbMatch) {
+        allUnmatched.push(`Match non trouvé : ${m.home} vs ${m.away}`)
+        continue
+      }
+      await upsertPlayers(dbMatch, m.players, 'flashscore')
+    }
+    return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed }, { headers: CORS })
+  }
+
+  // ── Chemin 2 : fallback SofaScore ────────────────────────────────────────────
   const eventsRes = await sofaFetch(
     `https://api.sofascore.com/api/v1/sport/football/scheduled-events/${date}`
   )
@@ -95,10 +188,9 @@ export async function POST(request: Request) {
 
   const events = (eventsRes.json.events ?? []) as Record<string, unknown>[]
 
-  // 2. Filtre matchs CdM terminés
   const cdmFinished = events.filter(e => {
-    const ut      = (e.tournament as Record<string, unknown>)?.uniqueTournament as Record<string, unknown>
-    const status  = e.status as Record<string, unknown>
+    const ut     = (e.tournament as Record<string, unknown>)?.uniqueTournament as Record<string, unknown>
+    const status = e.status as Record<string, unknown>
     return Number(ut?.id) === CDM_TOURNAMENT_ID && status?.type === 'finished'
   })
 
@@ -116,48 +208,20 @@ export async function POST(request: Request) {
     }, { headers: CORS })
   }
 
-  // 3. Matchs DB terminés pour le matching
-  const { data: dbMatchesRaw } = await admin
-    .from('cdm_matches')
-    .select('id, nation_a:cdm_nations!nation_a_id(id, name), nation_b:cdm_nations!nation_b_id(id, name)')
-    .eq('status', 'termine')
-
-  type DbMatch = { id: string; nation_a: { id: string; name: string }; nation_b: { id: string; name: string } }
-  const dbMatches = (dbMatchesRaw ?? []) as unknown as DbMatch[]
-
-  let totalMatched      = 0
-  const allUnmatched:    string[] = []
-  let matchesProcessed  = 0
-
-  // 4. Pour chaque match CdM terminé
   for (const event of cdmFinished) {
     const eventId  = String(event.id)
     const homeTeam = (event.homeTeam as Record<string, unknown>)?.name as string ?? '?'
     const awayTeam = (event.awayTeam as Record<string, unknown>)?.name as string ?? '?'
 
-    const nh = normalizeName(homeTeam)
-    const na = normalizeName(awayTeam)
-
-    const dbMatch = dbMatches.find(m => {
-      const mna = normalizeName(m.nation_a?.name ?? '')
-      const mnb = normalizeName(m.nation_b?.name ?? '')
-      return (
-        (nh.includes(mna) || mna.includes(nh)) && (na.includes(mnb) || mnb.includes(na))
-      ) || (
-        (na.includes(mna) || mna.includes(na)) && (nh.includes(mnb) || mnb.includes(nh))
-      )
-    })
-
+    const dbMatch = findDbMatch(homeTeam, awayTeam)
     if (!dbMatch) continue
 
-    // 4b. Lineups SofaScore
     const lineupsRes = await sofaFetch(
       `https://api.sofascore.com/api/v1/event/${eventId}/lineups`
     )
     if (!lineupsRes.ok) continue
 
-    type SofaPlayer = { name: string; team: string; rating: number | null; goals: number; assists: number; minutes: number | null }
-    const sofaPlayers: SofaPlayer[] = []
+    const sofaPlayers: PlayerInput[] = []
 
     for (const side of ['home', 'away'] as const) {
       const sideData = lineupsRes.json[side] as Record<string, unknown>
@@ -181,48 +245,7 @@ export async function POST(request: Request) {
     }
 
     if (sofaPlayers.length === 0) continue
-
-    // 4c. Joueurs DB des deux nations
-    const { data: dbPlayers } = await admin
-      .from('cdm_players')
-      .select('id, name, nation_id')
-      .in('nation_id', [dbMatch.nation_a?.id, dbMatch.nation_b?.id].filter(Boolean))
-
-    const dbPl = (dbPlayers ?? []) as Array<{ id: string; name: string; nation_id: string }>
-
-    // 4d. Matching + upsert
-    const upsertRows: Array<{
-      match_id: string; player_id: string; fotmob_rating: number | null
-      goals: number; assists: number; penalty_saved: boolean
-      minutes_played: number | null; source: string
-    }> = []
-
-    for (const p of sofaPlayers) {
-      const playerId = findPlayer(p.name, dbPl)
-      if (playerId) {
-        totalMatched++
-        upsertRows.push({
-          match_id:       dbMatch.id,
-          player_id:      playerId,
-          fotmob_rating:  p.rating,
-          goals:          p.goals,
-          assists:        p.assists,
-          penalty_saved:  false,
-          minutes_played: p.minutes,
-          source:         'sofascore',
-        })
-      } else {
-        allUnmatched.push(`${p.name} [${p.team}]`)
-      }
-    }
-
-    if (upsertRows.length > 0) {
-      await admin
-        .from('cdm_player_ratings')
-        .upsert(upsertRows, { onConflict: 'player_id,match_id' })
-    }
-
-    matchesProcessed++
+    await upsertPlayers(dbMatch, sofaPlayers, 'sofascore')
   }
 
   return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed }, { headers: CORS })
