@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { cookies } from 'next/headers'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
@@ -27,6 +28,27 @@ type Match = {
   nation_b: { name: string; code: string } | null
 }
 
+type MatchPick = {
+  id: string
+  match_id: string
+  points_finaux: number | null
+  bonus_player_id: string | null
+  player_a1: { id: string; name: string; position: string } | null
+  player_a2: { id: string; name: string; position: string } | null
+  player_b1: { id: string; name: string; position: string } | null
+  player_b2: { id: string; name: string; position: string } | null
+  user: { id: string; username: string; photo_url: string | null } | null
+}
+
+type MatchRating = {
+  player_id: string
+  match_id: string
+  fotmob_rating: number | null
+  goals: number | null
+  assists: number | null
+  penalty_saved: number | null
+}
+
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
 
 function iso(code: string) {
@@ -34,7 +56,6 @@ function iso(code: string) {
     String.fromCodePoint(c.charCodeAt(0) + 127397)
   )
 }
-
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,7 +90,8 @@ export default async function HomePage() {
   const allCookies = cookieStore.getAll()
   console.log('[page] cookies:', allCookies.map(c => c.name))
 
-  const supabase = await createClient()
+  const supabase      = await createClient()
+  const supabaseAdmin = createAdminClient()
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   console.log('[page] user:', user?.email, '| error:', userError?.message)
 
@@ -91,7 +113,8 @@ export default async function HomePage() {
   tomorrowDate.setDate(tomorrowDate.getDate() + 1)
   const tomorrowParis = formatInTimeZone(tomorrowDate, 'Europe/Paris', 'yyyy-MM-dd')
 
-  const [usersRes, picksRes, matchesRes, recentMatchesRes, meRes] = await Promise.all([
+  // Round 1 — requêtes parallèles
+  const [usersRes, picksRes, matchesRes, terminatedMatchesRes, meRes] = await Promise.all([
     supabase
       .from('cdm_users')
       .select('id, auth_id, username, photo_url, total_points')
@@ -116,15 +139,13 @@ export default async function HomePage() {
       return nationFilter ? q.or(nationFilter) : q
     })(),
 
-    (() => {
-      const q = supabase
-        .from('cdm_matches')
-        .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
-        .in('status', ['termine', 'en_cours'])
-        .order('kickoff_at', { ascending: false })
-        .limit(2)
-      return nationFilter ? q.or(nationFilter) : q
-    })(),
+    // 4 derniers matchs terminés — sans filtre nation pour tout afficher
+    supabase
+      .from('cdm_matches')
+      .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
+      .eq('status', 'termine')
+      .order('kickoff_at', { ascending: false })
+      .limit(4),
 
     user
       ? supabase
@@ -136,34 +157,73 @@ export default async function HomePage() {
   ])
 
   const me = meRes.data
+  const cdmUsers: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
+  const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
+  const terminatedMatches: Match[] = (terminatedMatchesRes.data ?? []) as unknown as Match[]
+  const terminatedMatchIds = terminatedMatches.map(m => m.id)
 
   console.log('[page] cdmUsers count:', usersRes.data?.length, '| error:', usersRes.error?.message)
   console.log('[page] cdmUser:', me?.username, '| is_admin:', (me as Record<string, unknown>)?.is_admin)
   console.log('[page] prochains matchs:', matchesRes.data?.length, matchesRes.error?.message)
-  console.log('[page] matchs récents:', recentMatchesRes.data?.length, (recentMatchesRes as { error?: { message?: string } }).error?.message)
+  console.log('[page] matchs terminés:', terminatedMatchesRes.data?.length)
 
-  const cdmUsers: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
-  const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
-  const recentMatches: Match[] = (recentMatchesRes.data ?? []) as unknown as Match[]
+  // Round 2 — picks user + picks/ratings des matchs terminés
+  const [userPicksRes, matchPicksRes, matchRatingsRes] = await Promise.all([
+    me
+      ? supabase
+          .from('cdm_picks')
+          .select('match_id, points_finaux')
+          .eq('user_id', me.id)
+      : Promise.resolve({ data: null }),
 
-  // Picks de l'utilisateur (matchs à venir + récents)
+    terminatedMatchIds.length > 0
+      ? supabaseAdmin
+          .from('cdm_picks')
+          .select(`
+            id, match_id, points_finaux, bonus_player_id,
+            player_a1:cdm_players!player_a1_id(id, name, position),
+            player_a2:cdm_players!player_a2_id(id, name, position),
+            player_b1:cdm_players!player_b1_id(id, name, position),
+            player_b2:cdm_players!player_b2_id(id, name, position),
+            user:cdm_users!user_id(id, username, photo_url)
+          `)
+          .in('match_id', terminatedMatchIds)
+          .order('points_finaux', { ascending: false, nullsFirst: false })
+      : Promise.resolve({ data: [] }),
+
+    terminatedMatchIds.length > 0
+      ? supabase
+          .from('cdm_player_ratings')
+          .select('player_id, match_id, fotmob_rating, goals, assists, penalty_saved')
+          .in('match_id', terminatedMatchIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  // Picks de l'utilisateur connecté
   let userPickedMatchIds = new Set<string>()
-  let pointsByMatch: Record<string, number | null> = {}
-  if (me) {
-    const { data: userPicks } = await supabase
-      .from('cdm_picks')
-      .select('match_id, points_finaux')
-      .eq('user_id', me.id)
-    userPickedMatchIds = new Set(userPicks?.map(p => p.match_id) ?? [])
-    pointsByMatch = Object.fromEntries(
-      userPicks?.map(p => [p.match_id, p.points_finaux]) ?? []
-    )
+  if (me && userPicksRes.data) {
+    userPickedMatchIds = new Set(userPicksRes.data.map(p => p.match_id))
   }
 
   // Nombre de matchs joués par user_id
   const matchesPlayed: Record<string, number> = {}
   for (const pick of (picksRes.data ?? [])) {
     matchesPlayed[pick.user_id] = (matchesPlayed[pick.user_id] ?? 0) + 1
+  }
+
+  // Picks groupés par match_id (déjà triés points desc)
+  const allMatchPicks = (matchPicksRes.data ?? []) as unknown as MatchPick[]
+  const picksByMatch: Record<string, MatchPick[]> = {}
+  for (const pick of allMatchPicks) {
+    if (!picksByMatch[pick.match_id]) picksByMatch[pick.match_id] = []
+    picksByMatch[pick.match_id].push(pick)
+  }
+
+  // Ratings map : `matchId:playerId`
+  const allRatings = (matchRatingsRes.data ?? []) as unknown as MatchRating[]
+  const ratingsMap: Record<string, MatchRating> = {}
+  for (const r of allRatings) {
+    ratingsMap[`${r.match_id}:${r.player_id}`] = r
   }
 
   return (
@@ -226,35 +286,37 @@ export default async function HomePage() {
                     const played = matchesPlayed[cdmUser.id] ?? 0
                     const pts = cdmUser.total_points ?? 0
                     return (
-                      <li
-                        key={cdmUser.id}
-                        className={[
-                          'flex items-center gap-3 px-4 py-3',
-                          i < cdmUsers.length - 1 ? 'border-b border-zinc-800/70' : '',
-                          isMe ? 'bg-green-950/25' : '',
-                        ].join(' ')}
-                      >
-                        <div className="w-7 text-center flex-shrink-0">
-                          {i < 3
-                            ? <span className="text-base leading-none">{MEDALS[i]}</span>
-                            : <span className="text-xs text-zinc-600 font-mono tabular-nums">{i + 1}</span>
-                          }
-                        </div>
-                        <Avatar src={cdmUser.photo_url} name={cdmUser.username} size="md" />
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate leading-tight ${isMe ? 'text-green-400' : 'text-zinc-100'}`}>
-                            {cdmUser.username}
-                            {isMe && <span className="ml-1.5 text-[10px] text-zinc-600 font-normal">moi</span>}
-                          </p>
-                        </div>
-                        <div className="w-12 text-right flex-shrink-0">
-                          <span className="text-xs text-zinc-500 tabular-nums">{played}</span>
-                        </div>
-                        <div className="w-12 text-right flex-shrink-0">
-                          <span className={`text-sm font-bold tabular-nums ${pts > 0 ? 'text-green-400' : 'text-zinc-600'}`}>
-                            {pts}
-                          </span>
-                        </div>
+                      <li key={cdmUser.id}>
+                        <Link
+                          href={`/profil/${cdmUser.id}`}
+                          className={[
+                            'flex items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-800/40',
+                            i < cdmUsers.length - 1 ? 'border-b border-zinc-800/70' : '',
+                            isMe ? 'bg-green-950/25' : '',
+                          ].join(' ')}
+                        >
+                          <div className="w-7 text-center flex-shrink-0">
+                            {i < 3
+                              ? <span className="text-base leading-none">{MEDALS[i]}</span>
+                              : <span className="text-xs text-zinc-600 font-mono tabular-nums">{i + 1}</span>
+                            }
+                          </div>
+                          <Avatar src={cdmUser.photo_url} name={cdmUser.username} size="md" />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate leading-tight ${isMe ? 'text-green-400' : 'text-zinc-100'}`}>
+                              {cdmUser.username}
+                              {isMe && <span className="ml-1.5 text-[10px] text-zinc-600 font-normal">moi</span>}
+                            </p>
+                          </div>
+                          <div className="w-12 text-right flex-shrink-0">
+                            <span className="text-xs text-zinc-500 tabular-nums">{played}</span>
+                          </div>
+                          <div className="w-12 text-right flex-shrink-0">
+                            <span className={`text-sm font-bold tabular-nums ${pts > 0 ? 'text-green-400' : 'text-zinc-600'}`}>
+                              {pts}
+                            </span>
+                          </div>
+                        </Link>
                       </li>
                     )
                   })}
@@ -277,7 +339,6 @@ export default async function HomePage() {
               <p className="text-xs text-zinc-600 mt-1">Les matchs apparaîtront ici dès leur ajout</p>
             </div>
           ) : (() => {
-            // Groupement par date (Europe/Paris)
             const byDate: Record<string, { label: string; matches: Match[] }> = {}
             for (const match of upcomingMatches) {
               const key   = formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', 'yyyy-MM-dd')
@@ -290,7 +351,6 @@ export default async function HomePage() {
               <div className="space-y-5">
                 {Object.entries(byDate).map(([key, { label, matches: dayMatches }]) => (
                   <div key={key}>
-                    {/* Séparateur de date */}
                     <p className="text-[11px] font-semibold text-zinc-400 capitalize mb-2 px-0.5">
                       {label}
                     </p>
@@ -302,7 +362,6 @@ export default async function HomePage() {
                           className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden"
                         >
                           <div className="px-4 pt-3.5 pb-3 flex items-center justify-between gap-3">
-                            {/* Équipes */}
                             <Link href={`/match/${match.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-xl leading-none">{iso(match.nation_a?.code ?? '')}</span>
@@ -320,7 +379,6 @@ export default async function HomePage() {
                               </p>
                             </Link>
 
-                            {/* CTA */}
                             <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
                               {userPickedMatchIds.has(match.id) && (
                                 <span className="text-[10px] text-green-500 font-semibold whitespace-nowrap">
@@ -336,7 +394,6 @@ export default async function HomePage() {
                             </div>
                           </div>
 
-                          {/* Barre verte fine en bas */}
                           <div className="h-0.5 bg-gradient-to-r from-green-600/40 via-green-500/20 to-transparent" />
                         </div>
                       ))}
@@ -354,67 +411,119 @@ export default async function HomePage() {
         </section>
 
         {/* ── Matchs récents ── */}
-        {recentMatches.length > 0 && (
+        {terminatedMatches.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
               Matchs récents
             </h2>
-            <div className="space-y-2">
-              {recentMatches.map(match => {
-                const pts    = pointsByMatch[match.id]
-                const picked = match.id in pointsByMatch
+            <div className="space-y-3">
+              {terminatedMatches.map(match => {
+                const ranked = picksByMatch[match.id] ?? []
                 return (
-                  <Link
-                    key={match.id}
-                    href={`/match/${match.id}`}
-                    className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-xl px-4 py-3 transition-colors"
-                  >
-                    {/* Équipes + score */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-lg leading-none">{iso(match.nation_a?.code ?? '')}</span>
-                        <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{match.nation_a?.name}</span>
-                        <span className="text-sm font-bold text-zinc-300 tabular-nums px-1">
-                          {match.score_a ?? '?'} - {match.score_b ?? '?'}
-                        </span>
-                        <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{match.nation_b?.name}</span>
-                        <span className="text-lg leading-none">{iso(match.nation_b?.code ?? '')}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-[10px] text-zinc-600">
-                          {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', "d MMM", { locale: fr })}
+                  <div key={match.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+
+                    {/* Match header */}
+                    <Link href={`/match/${match.id}`} className="flex items-center gap-3 px-4 pt-3.5 pb-3 hover:bg-zinc-800/30 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-lg leading-none">{iso(match.nation_a?.code ?? '')}</span>
+                          <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{match.nation_a?.name}</span>
+                          <span className="text-sm font-bold text-zinc-300 tabular-nums px-1">
+                            {match.score_a ?? '?'} - {match.score_b ?? '?'}
+                          </span>
+                          <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{match.nation_b?.name}</span>
+                          <span className="text-lg leading-none">{iso(match.nation_b?.code ?? '')}</span>
+                        </div>
+                        <p className="text-[10px] text-zinc-600 mt-0.5">
+                          {formatInTimeZone(new Date(match.kickoff_at), 'Europe/Paris', 'd MMM', { locale: fr })}
                           {match.phase && ` · ${match.phase}`}
                         </p>
                       </div>
-                    </div>
-
-                    {/* Points user + statut */}
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      {picked ? (
-                        <span className={`text-sm font-bold tabular-nums ${pts != null && pts > 0 ? 'text-green-400' : 'text-zinc-400'}`}>
-                          {pts != null ? `${pts} pts` : '— pts'}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-zinc-600 font-medium">Non joué</span>
-                      )}
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                        match.status === 'termine' ? 'bg-zinc-800 text-zinc-500' : 'bg-orange-950 text-orange-400'
-                      }`}>
-                        {match.status === 'termine' ? 'Terminé' : 'En cours'}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-zinc-800 text-zinc-500 flex-shrink-0">
+                        Terminé
                       </span>
-                    </div>
-                  </Link>
+                    </Link>
+
+                    {/* Classement participants */}
+                    {ranked.length > 0 && (
+                      <div className="border-t border-zinc-800/60 px-4 py-3 space-y-2.5">
+                        {ranked.map((pick, i) => {
+                          const isMe = pick.user?.id === me?.id
+                          const players = [pick.player_a1, pick.player_a2, pick.player_b1, pick.player_b2].filter(Boolean) as NonNullable<MatchPick['player_a1']>[]
+                          return (
+                            <div key={pick.id} className={`flex items-start gap-2 ${isMe ? 'opacity-100' : ''}`}>
+                              {/* Rang */}
+                              <div className="w-5 text-center flex-shrink-0 pt-0.5">
+                                {i < 3
+                                  ? <span className="text-sm leading-none">{MEDALS[i]}</span>
+                                  : <span className="text-[11px] text-zinc-600 font-mono tabular-nums">{i + 1}</span>
+                                }
+                              </div>
+
+                              {/* Contenu */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <div className="w-4 h-4 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 overflow-hidden flex items-center justify-center text-[8px] font-semibold text-zinc-500">
+                                    {pick.user?.photo_url
+                                      ? <Image src={pick.user.photo_url} alt="" width={16} height={16} className="object-cover w-full h-full" />
+                                      : pick.user?.username?.[0]?.toUpperCase() ?? '?'
+                                    }
+                                  </div>
+                                  <span className={`text-[12px] font-semibold truncate ${isMe ? 'text-green-400' : 'text-zinc-100'}`}>
+                                    {pick.user?.username ?? '?'}
+                                    {isMe && <span className="ml-1 text-[10px] text-zinc-600 font-normal">moi</span>}
+                                  </span>
+                                  <span className={`text-[11px] font-bold tabular-nums ml-auto flex-shrink-0 ${pick.points_finaux != null && pick.points_finaux > 0 ? 'text-green-400' : 'text-zinc-500'}`}>
+                                    {pick.points_finaux != null ? `${pick.points_finaux} pts` : '– pts'}
+                                  </span>
+                                </div>
+
+                                {/* Joueurs */}
+                                <div className="flex flex-wrap gap-1">
+                                  {players.map(p => {
+                                    const rKey = `${match.id}:${p.id}`
+                                    const r = ratingsMap[rKey]
+                                    const isStar = p.id === pick.bonus_player_id
+                                    return (
+                                      <span
+                                        key={p.id}
+                                        className={[
+                                          'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border',
+                                          isStar
+                                            ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
+                                            : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
+                                        ].join(' ')}
+                                      >
+                                        {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
+                                        <span className="truncate max-w-[56px]">{p.name}</span>
+                                        {r?.fotmob_rating != null
+                                          ? <span className={`font-bold tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
+                                          : <span className="text-zinc-600">–</span>
+                                        }
+                                        {(r?.goals ?? 0) > 0 && <span>⚽</span>}
+                                        {(r?.assists ?? 0) > 0 && <span>🅰️</span>}
+                                        {(r?.penalty_saved ?? 0) > 0 && <span>🧤</span>}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
             <div className="mt-3 text-right">
-              <Link href="/matchs" className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
-                Voir tous les matchs →
+              <Link href="/resultats" className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors">
+                Voir tous les résultats →
               </Link>
             </div>
           </section>
         )}
-
 
       </main>
     </div>
