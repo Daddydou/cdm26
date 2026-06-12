@@ -59,7 +59,8 @@ function findPlayer(
 export async function POST(request: Request) {
   let date: string
   try {
-    const body = await request.json()
+    const raw  = await request.text()
+    const body = JSON.parse(raw)
     date = body.date
   } catch {
     return Response.json({ error: 'Body JSON invalide' }, { status: 400, headers: CORS })
