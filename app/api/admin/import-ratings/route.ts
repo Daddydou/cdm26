@@ -61,6 +61,10 @@ export async function POST(request: Request) {
   try {
     const raw  = await request.text()
     const body = JSON.parse(raw)
+    const expectedKey = process.env.ADMIN_SECRET ?? 'CDM2026admin'
+    if (body.adminKey !== expectedKey) {
+      return Response.json({ error: 'Clé admin invalide' }, { status: 401, headers: CORS })
+    }
     date = body.date
   } catch {
     return Response.json({ error: 'Body JSON invalide' }, { status: 400, headers: CORS })
