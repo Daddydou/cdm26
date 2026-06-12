@@ -48,16 +48,21 @@ async function sofaFetch(url: string) {
   return { ok: res.ok, status: res.status, json }
 }
 
+// normalizeName + tirets → espaces ("Kim Seung-Gyu" → "kim seung gyu")
+function normalize(name: string): string {
+  return normalizeName(name).replace(/-/g, ' ')
+}
+
 function findPlayer(
   name: string,
   players: Array<{ id: string; name: string }>
 ): string | null {
-  const norm = normalizeName(name)
-  const exact = players.find(p => normalizeName(p.name) === norm)
+  const norm = normalize(name)
+  const exact = players.find(p => normalize(p.name) === norm)
   if (exact) return exact.id
   const last = norm.split(' ').at(-1) ?? ''
   if (last.length >= 3) {
-    const byLast = players.filter(p => normalizeName(p.name).split(' ').at(-1) === last)
+    const byLast = players.filter(p => normalize(p.name).split(' ').at(-1) === last)
     if (byLast.length === 1) return byLast[0].id
   }
   // Level 3 : initiale prénom ("Gutierrez B." → "Brian Gutiérrez")
@@ -71,7 +76,7 @@ function findPlayer(
   }
   if (initial && lnPart) {
     const byInitial = players.filter(p => {
-      const pn    = normalizeName(p.name)
+      const pn    = normalize(p.name)
       const parts = pn.split(/\s+/)
       return pn.includes(lnPart!) && parts.some(w => w.startsWith(initial!))
     })
@@ -79,7 +84,7 @@ function findPlayer(
   }
 
   return players.find(p => {
-    const pn = normalizeName(p.name)
+    const pn = normalize(p.name)
     return pn.includes(norm) || norm.includes(pn)
   })?.id ?? null
 }
@@ -131,11 +136,11 @@ export async function POST(request: Request) {
   let matchesProcessed = 0
 
   function findDbMatch(home: string, away: string): DbMatch | undefined {
-    const nh = normalizeName(mapTeam(home))
-    const na = normalizeName(mapTeam(away))
+    const nh = normalize(mapTeam(home))
+    const na = normalize(mapTeam(away))
     return dbMatches.find(m => {
-      const mna = normalizeName(m.nation_a?.name ?? '')
-      const mnb = normalizeName(m.nation_b?.name ?? '')
+      const mna = normalize(m.nation_a?.name ?? '')
+      const mnb = normalize(m.nation_b?.name ?? '')
       // Essaie home=nation_a/away=nation_b ET l'ordre inversé
       return (
         (nh.includes(mna) || mna.includes(nh)) && (na.includes(mnb) || mnb.includes(na))
@@ -179,9 +184,15 @@ export async function POST(request: Request) {
     }
 
     if (upsertRows.length > 0) {
+      const seen = new Set<string>()
+      const deduped = upsertRows.filter(r => {
+        if (seen.has(r.player_id)) return false
+        seen.add(r.player_id)
+        return true
+      })
       await admin
         .from('cdm_player_ratings')
-        .upsert(upsertRows, { onConflict: 'player_id,match_id' })
+        .upsert(deduped, { onConflict: 'player_id,match_id' })
     }
     matchesProcessed++
   }
