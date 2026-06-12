@@ -2,6 +2,16 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeName } from '@/app/scripts/sofascore-ratings'
 import { fetch as undiciFetch } from 'undici'
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  'https://www.flashscore.fr',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS })
+}
+
 const SOFA_HEADERS = {
   'User-Agent':         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept':             'application/json',
@@ -52,10 +62,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     date = body.date
   } catch {
-    return Response.json({ error: 'Body JSON invalide' }, { status: 400 })
+    return Response.json({ error: 'Body JSON invalide' }, { status: 400, headers: CORS_HEADERS })
   }
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return Response.json({ error: 'date invalide — format YYYY-MM-DD requis' }, { status: 400 })
+    return Response.json({ error: 'date invalide — format YYYY-MM-DD requis' }, { status: 400, headers: CORS_HEADERS })
   }
 
   const admin = createAdminClient()
@@ -73,9 +83,9 @@ export async function POST(request: Request) {
         unmatched:         [],
         matches_processed: 0,
         message:           'SofaScore bloque les requêtes depuis les serveurs Vercel (Cloudflare TLS fingerprinting).',
-      })
+      }, { headers: CORS_HEADERS })
     }
-    return Response.json({ error: `SofaScore HTTP ${eventsRes.status}` }, { status: 502 })
+    return Response.json({ error: `SofaScore HTTP ${eventsRes.status}` }, { status: 502, headers: CORS_HEADERS })
   }
 
   const events = (eventsRes.json.events ?? []) as Record<string, unknown>[]
@@ -98,7 +108,7 @@ export async function POST(request: Request) {
       unmatched:         [],
       matches_processed: 0,
       message:           `Aucun match CdM terminé le ${date} (${events.length} matchs football). Tournois : ${tournois.join(', ')}`,
-    })
+    }, { headers: CORS_HEADERS })
   }
 
   // 3. Matchs DB terminés pour le matching
@@ -210,5 +220,5 @@ export async function POST(request: Request) {
     matchesProcessed++
   }
 
-  return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed })
+  return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed }, { headers: CORS_HEADERS })
 }
