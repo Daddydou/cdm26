@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeName } from '@/app/scripts/sofascore-ratings'
 import { fetch as undiciFetch } from 'undici'
+import { computeMatchPoints } from '@/app/actions/admin'
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -183,6 +184,7 @@ export async function POST(request: Request) {
       }
     }
 
+    let upserted = false
     if (upsertRows.length > 0) {
       const seen = new Set<string>()
       const deduped = upsertRows.filter(r => {
@@ -190,24 +192,32 @@ export async function POST(request: Request) {
         seen.add(r.player_id)
         return true
       })
-      await admin
+      const { error: upsertErr } = await admin
         .from('cdm_player_ratings')
         .upsert(deduped, { onConflict: 'player_id,match_id' })
+      if (!upsertErr) upserted = true
     }
     matchesProcessed++
+    return upserted
   }
 
   // ── Chemin 1 : données du bookmarklet ────────────────────────────────────────
   if (bodyMatches) {
+    let calculated = false
     for (const m of bodyMatches) {
       const dbMatch = findDbMatch(m.home, m.away)
       if (!dbMatch) {
         allUnmatched.push(`Match non trouvé : ${m.home} vs ${m.away}`)
         continue
       }
-      await upsertPlayers(dbMatch, m.players, 'flashscore')
+      const upserted = await upsertPlayers(dbMatch, m.players, 'flashscore')
+      if (upserted) {
+        const calc = await computeMatchPoints(dbMatch.id)
+        if (!calc.error) calculated = true
+        console.log('[import-ratings] calcul scores match', dbMatch.id, '→', calc.computed.length, 'picks, erreur:', calc.error)
+      }
     }
-    return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed }, { headers: CORS })
+    return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed, calculated }, { headers: CORS })
   }
 
   // ── Chemin 2 : fallback SofaScore ────────────────────────────────────────────
@@ -287,8 +297,13 @@ export async function POST(request: Request) {
     }
 
     if (sofaPlayers.length === 0) continue
-    await upsertPlayers(dbMatch, sofaPlayers, 'sofascore')
+    const upserted = await upsertPlayers(dbMatch, sofaPlayers, 'sofascore')
+    if (upserted) {
+      const calc = await computeMatchPoints(dbMatch.id)
+      console.log('[import-ratings] calcul scores match', dbMatch.id, '→', calc.computed.length, 'picks, erreur:', calc.error)
+    }
   }
 
-  return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed }, { headers: CORS })
+  const calculated = matchesProcessed > 0
+  return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed, calculated }, { headers: CORS })
 }
