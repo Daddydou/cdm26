@@ -28,6 +28,18 @@ const SOFA_HEADERS = {
 
 const CDM_TOURNAMENT_ID = 16
 
+const TEAM_MAP: Record<string, string> = {
+  'Czech Republic': 'Rép. Tchèque', 'Tchéquie': 'Rép. Tchèque', 'République Tchèque': 'Rép. Tchèque',
+  'Ivory Coast': "Côte d'Ivoire", 'Bosnie-Herzégovine': 'Bosnie-Herzégovine',
+  'DR Congo': 'RD Congo', 'South Korea': 'Corée du Sud',
+  'United States': 'Etats-Unis', USA: 'Etats-Unis',
+  'Saudi Arabia': 'Arabie Saoudite', 'New Zealand': 'Nouvelle-Zélande',
+}
+
+function mapTeam(name: string): string {
+  return TEAM_MAP[name] ?? name
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function sofaFetch(url: string) {
@@ -119,11 +131,12 @@ export async function POST(request: Request) {
   let matchesProcessed = 0
 
   function findDbMatch(home: string, away: string): DbMatch | undefined {
-    const nh = normalizeName(home)
-    const na = normalizeName(away)
+    const nh = normalizeName(mapTeam(home))
+    const na = normalizeName(mapTeam(away))
     return dbMatches.find(m => {
       const mna = normalizeName(m.nation_a?.name ?? '')
       const mnb = normalizeName(m.nation_b?.name ?? '')
+      // Essaie home=nation_a/away=nation_b ET l'ordre inversé
       return (
         (nh.includes(mna) || mna.includes(nh)) && (na.includes(mnb) || mnb.includes(na))
       ) || (
