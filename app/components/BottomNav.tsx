@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation'
 const HIDDEN_ON = ['/connexion', '/auth/callback']
 
 const TABS = [
-  { href: '/',          label: 'Accueil',   icon: '🏠' },
-  { href: '/matchs',    label: 'Matchs',    icon: '📅' },
-  { href: '/resultats', label: 'Résultats', icon: '🏆' },
+  { href: '/',               label: 'Accueil',   icon: '🏠' },
+  { href: '/matchs',         label: 'Matchs',    icon: '📅' },
+  { href: '/resultats',      label: 'Résultats', icon: '🏆' },
+  { href: '/statistiques',   label: 'Stats',     icon: '📊' },
 ] as const
 
 export default function BottomNav() {
