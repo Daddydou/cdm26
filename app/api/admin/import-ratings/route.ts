@@ -1,15 +1,15 @@
-import { createAdminClient } from '@/lib/supabase/admin'
+﻿import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeName } from '@/app/scripts/sofascore-ratings'
 import { fetch as undiciFetch } from 'undici'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  'https://www.flashscore.fr',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': '*',
 }
 
 export async function OPTIONS() {
-  return new Response(null, { status: 204, headers: CORS_HEADERS })
+  return new Response(null, { status: 204, headers: CORS })
 }
 
 const SOFA_HEADERS = {
@@ -28,7 +28,7 @@ const SOFA_HEADERS = {
 
 const CDM_TOURNAMENT_ID = 16
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function sofaFetch(url: string) {
   const res  = await undiciFetch(url, { headers: SOFA_HEADERS })
@@ -62,10 +62,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     date = body.date
   } catch {
-    return Response.json({ error: 'Body JSON invalide' }, { status: 400, headers: CORS_HEADERS })
+    return Response.json({ error: 'Body JSON invalide' }, { status: 400, headers: CORS })
   }
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return Response.json({ error: 'date invalide — format YYYY-MM-DD requis' }, { status: 400, headers: CORS_HEADERS })
+    return Response.json({ error: 'date invalide — format YYYY-MM-DD requis' }, { status: 400, headers: CORS })
   }
 
   const admin = createAdminClient()
@@ -83,9 +83,9 @@ export async function POST(request: Request) {
         unmatched:         [],
         matches_processed: 0,
         message:           'SofaScore bloque les requêtes depuis les serveurs Vercel (Cloudflare TLS fingerprinting).',
-      }, { headers: CORS_HEADERS })
+      }, { headers: CORS })
     }
-    return Response.json({ error: `SofaScore HTTP ${eventsRes.status}` }, { status: 502, headers: CORS_HEADERS })
+    return Response.json({ error: `SofaScore HTTP ${eventsRes.status}` }, { status: 502, headers: CORS })
   }
 
   const events = (eventsRes.json.events ?? []) as Record<string, unknown>[]
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       unmatched:         [],
       matches_processed: 0,
       message:           `Aucun match CdM terminé le ${date} (${events.length} matchs football). Tournois : ${tournois.join(', ')}`,
-    }, { headers: CORS_HEADERS })
+    }, { headers: CORS })
   }
 
   // 3. Matchs DB terminés pour le matching
@@ -220,5 +220,5 @@ export async function POST(request: Request) {
     matchesProcessed++
   }
 
-  return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed }, { headers: CORS_HEADERS })
+  return Response.json({ matched: totalMatched, unmatched: allUnmatched, matches_processed: matchesProcessed }, { headers: CORS })
 }
