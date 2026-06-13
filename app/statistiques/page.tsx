@@ -1,9 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PointsChart from './PointsChart'
-import RadarChart from './RadarChart'
 import type { ChartUser, ChartPoint } from './PointsChart'
-import type { RadarUser, RadarPoint } from './RadarChart'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,11 +67,6 @@ function iso(code: string) {
   return code.toUpperCase().replace(/./g, c =>
     String.fromCodePoint(c.charCodeAt(0) + 127397)
   )
-}
-
-function avg(arr: number[]): number {
-  if (!arr.length) return 0
-  return Math.round(arr.reduce((s, v) => s + v, 0) / arr.length * 10) / 10
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -161,59 +154,6 @@ export default async function StatistiquesPage() {
   })
 
   const chartUsers: ChartUser[] = users.map(u => ({ id: u.id, username: u.username }))
-
-  // ── Radar : note moyenne par poste (rating > 0 uniquement) ──────────────────
-  const radarAccum: Record<string, Record<'GK' | 'DEF' | 'MID' | 'FWD', number[]>> = {}
-  const bonusPtsByUser: Record<string, number> = {}
-  for (const u of users) {
-    radarAccum[u.id] = { GK: [], DEF: [], MID: [], FWD: [] }
-    bonusPtsByUser[u.id] = 0
-  }
-
-  for (const pick of extPicks) {
-    const acc = radarAccum[pick.user_id]
-    if (!acc) continue
-
-    const slots = [
-      { id: pick.player_a1_id, pos: pick.player_a1?.position },
-      { id: pick.player_a2_id, pos: pick.player_a2?.position },
-      { id: pick.player_b1_id, pos: pick.player_b1?.position },
-      { id: pick.player_b2_id, pos: pick.player_b2?.position },
-    ]
-
-    for (const { id, pos } of slots) {
-      if (!id || !pos) continue
-      const rating = ratingsMap[`${pick.match_id}:${id}`]
-      if (!rating) continue
-      const key = pos as 'GK' | 'DEF' | 'MID' | 'FWD'
-      if (acc[key]) acc[key].push(rating)
-    }
-
-    if (pick.bonus_type && pick.points_finaux != null && pick.points_bruts != null) {
-      bonusPtsByUser[pick.user_id] = (bonusPtsByUser[pick.user_id] ?? 0) + (pick.points_finaux - pick.points_bruts)
-    }
-  }
-
-  const radarData: RadarPoint[] = [
-    { axis: 'GK',    key: 'GK'    },
-    { axis: 'DEF',   key: 'DEF'   },
-    { axis: 'MIL',   key: 'MID'   },
-    { axis: 'ATT',   key: 'FWD'   },
-    { axis: 'Bonus', key: 'bonus' },
-  ].map(({ axis, key }) => {
-    const point: RadarPoint = { subject: axis }
-    for (const u of users) {
-      if (key === 'bonus') {
-        point[u.id] = bonusPtsByUser[u.id] ?? 0
-      } else {
-        const posKey = key as 'GK' | 'DEF' | 'MID' | 'FWD'
-        point[u.id] = avg(radarAccum[u.id]?.[posKey] ?? [])
-      }
-    }
-    return point
-  })
-
-  const radarUsers: RadarUser[] = users.map(u => ({ id: u.id, username: u.username }))
 
   // ── Classement par match : 2pts 1er / 1pt 2e / 0pt 3e+ ─────────────────────
   const matchRankPts: Record<string, Record<string, number>> = {}
@@ -334,20 +274,7 @@ export default async function StatistiquesPage() {
           )}
         </section>
 
-        {/* ── 2. Radar par participant ── */}
-        <section>
-          <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
-            Profil par poste
-          </h2>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <RadarChart users={radarUsers} data={radarData} />
-          </div>
-          <p className="text-[10px] text-zinc-600 mt-2 px-1">
-            Note moyenne par poste (hors note 0) · Bonus = total de points bonus gagnés
-          </p>
-        </section>
-
-        {/* ── 3. Classement par match ── */}
+        {/* ── 2. Classement par match ── */}
         {matches.length > 0 && users.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
