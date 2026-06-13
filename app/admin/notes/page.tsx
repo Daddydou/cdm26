@@ -218,7 +218,7 @@ function PlayerRow({
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${posColor}`}>
           {player.position}
         </span>
-        <span className="text-sm text-zinc-200 truncate">{player.name}</span>
+        <span className="text-sm text-zinc-200">{player.name}</span>
       </div>
 
       {/* Inputs — empilés sur mobile */}

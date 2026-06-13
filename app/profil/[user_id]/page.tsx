@@ -316,7 +316,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                             >
                               {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
                               <span className="text-[10px] text-zinc-600">{POS[info.position] ?? info.position}</span>
-                              <span className="truncate max-w-[72px]">{info.name}</span>
+                              <span>{info.name}</span>
                               {isFinished && (
                                 rating != null
                                   ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
