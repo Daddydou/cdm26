@@ -35,31 +35,37 @@ export default function ImportSofascorePage() {
     setLoadingList(true)
     const supabase = createClient()
 
-    const [matchRes, ratingsRes] = await Promise.all([
-      supabase
-        .from('cdm_matches')
-        .select(`
-          id, kickoff_at,
-          nation_a:cdm_nations!nation_a_id ( name ),
-          nation_b:cdm_nations!nation_b_id ( name )
-        `)
-        .eq('status', 'termine')
-        .order('kickoff_at', { ascending: false }),
-      supabase
-        .from('cdm_player_ratings')
-        .select('match_id'),
-    ])
+    const ratingsRes = await supabase
+      .from('cdm_player_ratings')
+      .select('match_id')
 
     const countByMatch: Record<string, number> = {}
     for (const r of ratingsRes.data ?? []) {
       countByMatch[r.match_id] = (countByMatch[r.match_id] ?? 0) + 1
     }
 
+    const matchIds = Object.keys(countByMatch)
+    if (matchIds.length === 0) {
+      setMatches([])
+      setLoadingList(false)
+      return
+    }
+
+    const matchRes = await supabase
+      .from('cdm_matches')
+      .select(`
+        id, kickoff_at,
+        nation_a:cdm_nations!nation_a_id ( name ),
+        nation_b:cdm_nations!nation_b_id ( name )
+      `)
+      .in('id', matchIds)
+      .order('kickoff_at', { ascending: false })
+
     const rows: MatchRow[] = (matchRes.data ?? []).map(m => ({
-      id:          m.id,
-      kickoff_at:  m.kickoff_at,
-      nameA:       (m.nation_a as unknown as { name: string })?.name ?? '?',
-      nameB:       (m.nation_b as unknown as { name: string })?.name ?? '?',
+      id:           m.id,
+      kickoff_at:   m.kickoff_at,
+      nameA:        (m.nation_a as unknown as { name: string })?.name ?? '?',
+      nameB:        (m.nation_b as unknown as { name: string })?.name ?? '?',
       ratingsCount: countByMatch[m.id] ?? 0,
     }))
 
