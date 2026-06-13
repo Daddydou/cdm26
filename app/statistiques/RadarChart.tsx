@@ -66,8 +66,8 @@ export default function RadarChart({
             borderRadius: '8px',
             fontSize: '12px',
           }}
-          formatter={(value: number, name: string) => [
-            `${typeof value === 'number' ? value.toFixed(1) : value}`,
+          formatter={(value: number | string | undefined, name: string) => [
+            value == null ? '' : typeof value === 'number' ? value.toFixed(1) : value,
             name,
           ]}
         />
