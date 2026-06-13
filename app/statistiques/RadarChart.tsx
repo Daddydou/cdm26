@@ -66,6 +66,7 @@ export default function RadarChart({
             borderRadius: '8px',
             fontSize: '12px',
           }}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           formatter={(value: any, name: any) => [value == null ? '' : typeof value === 'number' ? value.toFixed(1) : String(value), name]}
         />
         <Legend
