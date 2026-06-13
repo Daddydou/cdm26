@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import Link from 'next/link'
-import Image from 'next/image'
 import PointsChart from './PointsChart'
 import RadarChart from './RadarChart'
 import type { ChartUser, ChartPoint } from './PointsChart'
@@ -54,8 +52,6 @@ const COLORS = [
   '#ec4899', '#14b8a6',
 ]
 
-const MEDALS = ['🥇', '🥈', '🥉']
-
 const BONUS_META: Record<string, { name: string; icon: string; color: string }> = {
   double_mise:     { name: 'Double Mise',      icon: '⚡', color: '#f59e0b' },
   troisieme_homme: { name: 'Troisième Homme',  icon: '👤', color: '#3b82f6' },
@@ -86,7 +82,6 @@ export default async function StatistiquesPage() {
   const supabase      = await createClient()
   const supabaseAdmin = createAdminClient()
 
-  // Matchs terminés par ordre chronologique + users
   const [matchesRes, usersRes] = await Promise.all([
     supabase
       .from('cdm_matches')
@@ -104,7 +99,6 @@ export default async function StatistiquesPage() {
   const users: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
   const matchIds = matches.map(m => m.id)
 
-  // Picks étendus + ratings en parallèle
   const [picksRes, ratingsRes] = await Promise.all([
     matchIds.length > 0
       ? supabaseAdmin
@@ -137,7 +131,7 @@ export default async function StatistiquesPage() {
     if (r.fotmob_rating != null) ratingsMap[`${r.match_id}:${r.player_id}`] = r.fotmob_rating
   }
 
-  // ── Index picks : matchId → userId → points (pour chart cumulatif et tableau) ──
+  // ── Index picks : matchId → userId → points (pour chart cumulatif) ──────────
   const pickIndex: Record<string, Record<string, number>> = {}
   for (const p of extPicks) {
     if (!pickIndex[p.match_id]) pickIndex[p.match_id] = {}
@@ -166,10 +160,12 @@ export default async function StatistiquesPage() {
 
   const chartUsers: ChartUser[] = users.map(u => ({ id: u.id, username: u.username }))
 
-  // ── Radar : note moyenne par poste par participant ───────────────────────────
-  const radarAccum: Record<string, Record<'GK' | 'DEF' | 'MID' | 'FWD' | 'bonus', number[]>> = {}
+  // ── Radar : note moyenne par poste (rating > 0 uniquement) ──────────────────
+  const radarAccum: Record<string, Record<'GK' | 'DEF' | 'MID' | 'FWD', number[]>> = {}
+  const bonusPtsByUser: Record<string, number> = {}
   for (const u of users) {
-    radarAccum[u.id] = { GK: [], DEF: [], MID: [], FWD: [], bonus: [] }
+    radarAccum[u.id] = { GK: [], DEF: [], MID: [], FWD: [] }
+    bonusPtsByUser[u.id] = 0
   }
 
   for (const pick of extPicks) {
@@ -186,14 +182,13 @@ export default async function StatistiquesPage() {
     for (const { id, pos } of slots) {
       if (!id || !pos) continue
       const rating = ratingsMap[`${pick.match_id}:${id}`]
-      if (rating == null) continue
+      if (rating == null || rating === 0) continue
       const key = pos as 'GK' | 'DEF' | 'MID' | 'FWD'
       if (acc[key]) acc[key].push(rating)
     }
 
-    if (pick.bonus_player_id) {
-      const bRating = ratingsMap[`${pick.match_id}:${pick.bonus_player_id}`]
-      if (bRating != null) acc.bonus.push(bRating)
+    if (pick.bonus_type && pick.points_finaux != null && pick.points_bruts != null) {
+      bonusPtsByUser[pick.user_id] = (bonusPtsByUser[pick.user_id] ?? 0) + (pick.points_finaux - pick.points_bruts)
     }
   }
 
@@ -206,43 +201,62 @@ export default async function StatistiquesPage() {
   ].map(({ axis, key }) => {
     const point: RadarPoint = { subject: axis }
     for (const u of users) {
-      const posKey = key as 'GK' | 'DEF' | 'MID' | 'FWD' | 'bonus'
-      point[u.id] = avg(radarAccum[u.id]?.[posKey] ?? [])
+      if (key === 'bonus') {
+        point[u.id] = bonusPtsByUser[u.id] ?? 0
+      } else {
+        const posKey = key as 'GK' | 'DEF' | 'MID' | 'FWD'
+        point[u.id] = avg(radarAccum[u.id]?.[posKey] ?? [])
+      }
     }
     return point
   })
 
   const radarUsers: RadarUser[] = users.map(u => ({ id: u.id, username: u.username }))
 
-  // ── Classement par match (médailles) ─────────────────────────────────────────
-  const rankByMatch: Record<string, Record<string, number>> = {}
+  // ── Classement par match : 2pts 1er / 1pt 2e / 0pt 3e+ ─────────────────────
+  const matchRankPts: Record<string, Record<string, number>> = {}
+  const matchRankPos: Record<string, Record<string, number>> = {}
+
   for (const match of matches) {
     const sorted = extPicks
       .filter(p => p.match_id === match.id && p.points_finaux != null)
       .sort((a, b) => (b.points_finaux ?? 0) - (a.points_finaux ?? 0))
 
-    rankByMatch[match.id] = {}
+    matchRankPts[match.id] = {}
+    matchRankPos[match.id] = {}
+
     for (let i = 0; i < sorted.length; i++) {
       const p = sorted[i]
-      // Gestion ex-aequo
-      const sameAsPrev = i > 0 && sorted[i - 1].points_finaux === p.points_finaux
-      rankByMatch[match.id][p.user_id] = sameAsPrev
-        ? rankByMatch[match.id][sorted[i - 1].user_id]
+      const rank = i > 0 && sorted[i - 1].points_finaux === p.points_finaux
+        ? matchRankPos[match.id][sorted[i - 1].user_id]
         : i + 1
+      matchRankPos[match.id][p.user_id] = rank
+      matchRankPts[match.id][p.user_id] = rank === 1 ? 2 : rank === 2 ? 1 : 0
     }
   }
 
-  const victoriesByUser: Record<string, number> = {}
-  for (const u of users) victoriesByUser[u.id] = 0
+  const userMatchPts: Record<string, number> = {}
+  const userMedals: Record<string, { gold: number; silver: number; bronze: number }> = {}
+  for (const u of users) {
+    userMatchPts[u.id] = 0
+    userMedals[u.id] = { gold: 0, silver: 0, bronze: 0 }
+  }
   for (const matchId of matchIds) {
-    for (const [userId, rank] of Object.entries(rankByMatch[matchId] ?? {})) {
-      if (rank === 1) victoriesByUser[userId] = (victoriesByUser[userId] ?? 0) + 1
+    for (const [userId, pts] of Object.entries(matchRankPts[matchId] ?? {})) {
+      userMatchPts[userId] = (userMatchPts[userId] ?? 0) + pts
+    }
+    for (const [userId, rank] of Object.entries(matchRankPos[matchId] ?? {})) {
+      if (rank === 1)      userMedals[userId].gold++
+      else if (rank === 2) userMedals[userId].silver++
+      else if (rank === 3) userMedals[userId].bronze++
     }
   }
 
-  const usersRankedByWins = [...users].sort(
-    (a, b) => (victoriesByUser[b.id] ?? 0) - (victoriesByUser[a.id] ?? 0)
-  )
+  const usersRankedByMatchPts = [...users].sort((a, b) => {
+    const ptsDiff = (userMatchPts[b.id] ?? 0) - (userMatchPts[a.id] ?? 0)
+    if (ptsDiff !== 0) return ptsDiff
+    return (userMedals[b.id]?.gold ?? 0) - (userMedals[a.id]?.gold ?? 0)
+  })
 
   // ── Bonus stats ──────────────────────────────────────────────────────────────
   type BonusStat = { type: string; count: number; totalPts: number }
@@ -265,6 +279,26 @@ export default async function StatistiquesPage() {
   const bonusStats = Object.values(bonusMap).sort((a, b) => b.totalPts - a.totalPts)
   const avgNoBonusPts = noBonusCount > 0 ? Math.round(noBonusTotalPts / noBonusCount * 10) / 10 : 0
   const maxAvgBonusPts = Math.max(...bonusStats.map(b => b.totalPts / b.count), avgNoBonusPts, 1)
+
+  // ── Picks 💩 : joueurs pickés sans note (n'ont pas joué) ────────────────────
+  const ratedMatchIds = new Set(ratings.map(r => r.match_id))
+  const cacaPicks: Record<string, number> = {}
+  for (const u of users) cacaPicks[u.id] = 0
+
+  for (const pick of extPicks) {
+    if (!ratedMatchIds.has(pick.match_id)) continue
+    for (const pid of [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]) {
+      if (!pid) continue
+      const rating = ratingsMap[`${pick.match_id}:${pid}`]
+      if (rating == null || rating === 0) {
+        cacaPicks[pick.user_id] = (cacaPicks[pick.user_id] ?? 0) + 1
+      }
+    }
+  }
+
+  const usersRankedByCaca = [...users].sort(
+    (a, b) => (cacaPicks[a.id] ?? 0) - (cacaPicks[b.id] ?? 0)
+  )
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -307,7 +341,7 @@ export default async function StatistiquesPage() {
             <RadarChart users={radarUsers} data={radarData} />
           </div>
           <p className="text-[10px] text-zinc-600 mt-2 px-1">
-            Note moyenne des joueurs pickés par poste · Bonus = note moy. du joueur ×2 désigné
+            Note moyenne par poste (hors note 0) · Bonus = total de points bonus gagnés
           </p>
         </section>
 
@@ -318,68 +352,61 @@ export default async function StatistiquesPage() {
               Classement par match
             </h2>
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-center" style={{ minWidth: `${Math.max(320, matches.length * 52 + 120)}px` }}>
-                  <thead>
-                    <tr className="border-b border-zinc-800 bg-zinc-950/40">
-                      <th className="text-left px-3 py-2 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider w-24 sticky left-0 bg-zinc-950/80 backdrop-blur">
-                        Joueur
-                      </th>
-                      {matches.map((match, i) => (
-                        <th key={match.id} className="px-1 py-2">
-                          <Link href={`/match/${match.id}`} className="flex flex-col items-center gap-0.5 hover:opacity-70 transition-opacity">
-                            <span className="text-[11px]">
-                              {iso(match.nation_a?.code ?? '')}{iso(match.nation_b?.code ?? '')}
-                            </span>
-                            <span className="text-[9px] text-zinc-600 font-mono">M{i + 1}</span>
-                          </Link>
-                        </th>
-                      ))}
-                      <th className="px-2 py-2 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
-                        🥇
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usersRankedByWins.map((u, uIdx) => {
-                      const colorIdx = users.indexOf(u)
-                      return (
-                        <tr
-                          key={u.id}
-                          className={uIdx < usersRankedByWins.length - 1 ? 'border-b border-zinc-800/50' : ''}
-                        >
-                          <td className="text-left px-3 py-2.5 sticky left-0 bg-zinc-900">
-                            <span
-                              className="text-[11px] font-semibold truncate block max-w-[80px]"
-                              style={{ color: COLORS[colorIdx % COLORS.length] }}
-                            >
-                              {u.username}
-                            </span>
-                          </td>
-                          {matches.map(match => {
-                            const rank = rankByMatch[match.id]?.[u.id]
-                            return (
-                              <td key={match.id} className="px-1 py-2.5">
-                                {rank != null && rank <= 3
-                                  ? <span className="text-base leading-none">{MEDALS[rank - 1]}</span>
-                                  : rank != null
-                                  ? <span className="text-[10px] text-zinc-600 font-mono">{rank}</span>
-                                  : <span className="text-[10px] text-zinc-800">—</span>
-                                }
-                              </td>
-                            )
-                          })}
-                          <td className="px-2 py-2.5">
-                            <span className="text-sm font-bold text-yellow-400">
-                              {victoriesByUser[u.id] ?? 0}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-zinc-800 bg-zinc-950/40">
+                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
+                      Joueur
+                    </th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider text-center">
+                      Pts
+                    </th>
+                    <th className="px-3 py-2.5 text-base text-center">🥇</th>
+                    <th className="px-3 py-2.5 text-base text-center">🥈</th>
+                    <th className="px-3 py-2.5 text-base text-center">🥉</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersRankedByMatchPts.map((u, uIdx) => {
+                    const colorIdx = users.indexOf(u)
+                    return (
+                      <tr
+                        key={u.id}
+                        className={uIdx < usersRankedByMatchPts.length - 1 ? 'border-b border-zinc-800/50' : ''}
+                      >
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-semibold" style={{ color: COLORS[colorIdx % COLORS.length] }}>
+                            {u.username}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className="text-sm font-bold tabular-nums text-zinc-100">
+                            {userMatchPts[u.id] ?? 0}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className="text-sm tabular-nums text-zinc-300">
+                            {userMedals[u.id]?.gold ?? 0}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className="text-sm tabular-nums text-zinc-300">
+                            {userMedals[u.id]?.silver ?? 0}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span className="text-sm tabular-nums text-zinc-300">
+                            {userMedals[u.id]?.bronze ?? 0}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-zinc-600 px-4 py-2.5 border-t border-zinc-800/50">
+                2 pts · 1re place · 1 pt · 2e place · 0 pt · 3e et au-delà
+              </p>
             </div>
           </section>
         )}
@@ -392,7 +419,6 @@ export default async function StatistiquesPage() {
             </h2>
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
 
-              {/* Barre "sans bonus" comme référence */}
               {avgNoBonusPts > 0 && (
                 <div className="flex items-center gap-3 pb-2 border-b border-zinc-800/60">
                   <div className="w-32 text-right text-[11px] text-zinc-500">Sans bonus</div>
@@ -408,11 +434,10 @@ export default async function StatistiquesPage() {
                 </div>
               )}
 
-              {/* Barres par type de bonus */}
               {bonusStats.map(stat => {
-                const meta    = BONUS_META[stat.type]
-                const avgPts  = Math.round(stat.totalPts / stat.count * 10) / 10
-                const pct     = Math.round((avgPts / maxAvgBonusPts) * 100)
+                const meta   = BONUS_META[stat.type]
+                const avgPts = Math.round(stat.totalPts / stat.count * 10) / 10
+                const pct    = Math.round((avgPts / maxAvgBonusPts) * 100)
                 return (
                   <div key={stat.type} className="flex items-center gap-3">
                     <div className="w-32 text-right text-[11px] text-zinc-300 leading-tight">
@@ -421,10 +446,7 @@ export default async function StatistiquesPage() {
                     <div className="flex-1 h-3 bg-zinc-800 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${pct}%`,
-                          backgroundColor: meta?.color ?? '#2aad66',
-                        }}
+                        style={{ width: `${pct}%`, backgroundColor: meta?.color ?? '#2aad66' }}
                       />
                     </div>
                     <div className="w-24 text-[11px] text-zinc-400 tabular-nums">
@@ -441,104 +463,51 @@ export default async function StatistiquesPage() {
           </section>
         )}
 
-        {/* ── 5. Points par match (tableau détaillé) ── */}
-        {matches.length > 0 && users.length > 0 && (
+        {/* ── 5. Picks 💩 ── */}
+        {ratedMatchIds.size > 0 && users.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
-              Points par match
+              Picks 💩
             </h2>
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="flex gap-2 px-3 py-2 border-b border-zinc-800 bg-zinc-950/40">
-                <div className="w-20 shrink-0 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Match</div>
-                {users.map((u, i) => (
-                  <div
-                    key={u.id}
-                    className="flex-1 text-[10px] font-semibold text-center truncate"
-                    style={{ color: COLORS[i % COLORS.length] }}
-                    title={u.username}
-                  >
-                    {u.username.split(' ')[0]}
-                  </div>
-                ))}
-              </div>
-
-              {matches.map((match, i) => {
-                const codeA = match.nation_a?.code ?? ''
-                const codeB = match.nation_b?.code ?? ''
-                return (
-                  <div key={match.id} className={`flex gap-2 px-3 py-2.5 ${i < matches.length - 1 ? 'border-b border-zinc-800/50' : ''}`}>
-                    <Link href={`/match/${match.id}`} className="w-20 shrink-0 hover:opacity-80 transition-opacity">
-                      <span className="text-[10px] text-zinc-500 font-mono">M{i + 1}</span>
-                      <span className="ml-1 text-[11px]">{iso(codeA)}{iso(codeB)}</span>
-                    </Link>
-                    {users.map((u, ui) => {
-                      const pts = pickIndex[match.id]?.[u.id]
-                      return (
-                        <div key={u.id} className="flex-1 text-center">
-                          {pts !== undefined
-                            ? <span
-                                className="text-[11px] font-bold tabular-nums"
-                                style={{ color: pts > 0 ? COLORS[ui % COLORS.length] : '#52525b' }}
-                              >{pts}</span>
-                            : <span className="text-[10px] text-zinc-700">—</span>
-                          }
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-
-              <div className="flex gap-2 px-3 py-2.5 bg-zinc-950/40 border-t border-zinc-800">
-                <div className="w-20 shrink-0 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Total</div>
-                {users.map((u, i) => (
-                  <div key={u.id} className="flex-1 text-center">
-                    <span className="text-[11px] font-bold tabular-nums" style={{ color: COLORS[i % COLORS.length] }}>
-                      {u.total_points ?? 0}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ── 6. Podium ── */}
-        {users.length >= 3 && (
-          <section>
-            <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
-              Podium actuel
-            </h2>
-            <div className="grid grid-cols-3 gap-3">
-              {[users[1], users[0], users[2]].map((u, visualPos) => {
-                const actualRank = visualPos === 0 ? 1 : visualPos === 1 ? 0 : 2
-                if (!u) return <div key={visualPos} />
-                const colorIdx = users.indexOf(u)
-                return (
-                  <Link
-                    key={u.id}
-                    href={`/profil/${u.id}`}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-colors hover:bg-zinc-800/40 ${
-                      actualRank === 0 ? 'bg-yellow-950/20 border-yellow-800/30' : 'bg-zinc-900 border-zinc-800'
-                    } ${visualPos === 1 ? 'pb-5' : ''}`}
-                  >
-                    <span className="text-2xl leading-none">{MEDALS[actualRank]}</span>
-                    <div
-                      className="w-10 h-10 rounded-full bg-zinc-800 border-2 overflow-hidden flex items-center justify-center text-sm font-bold text-zinc-500 flex-shrink-0"
-                      style={{ borderColor: COLORS[colorIdx % COLORS.length] + '80' }}
-                    >
-                      {u.photo_url
-                        ? <Image src={u.photo_url} alt={u.username} width={40} height={40} className="object-cover w-full h-full" />
-                        : u.username[0]?.toUpperCase()
-                      }
-                    </div>
-                    <p className="text-[11px] font-semibold text-zinc-100 text-center truncate w-full">{u.username}</p>
-                    <p className="text-sm font-bold tabular-nums" style={{ color: COLORS[colorIdx % COLORS.length] }}>
-                      {u.total_points ?? 0} pts
-                    </p>
-                  </Link>
-                )
-              })}
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-zinc-800 bg-zinc-950/40">
+                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
+                      Joueur
+                    </th>
+                    <th className="px-4 py-2.5 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider text-center">
+                      💩 picks à 0 pts
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersRankedByCaca.map((u, uIdx) => {
+                    const colorIdx = users.indexOf(u)
+                    const count = cacaPicks[u.id] ?? 0
+                    return (
+                      <tr
+                        key={u.id}
+                        className={uIdx < usersRankedByCaca.length - 1 ? 'border-b border-zinc-800/50' : ''}
+                      >
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-semibold" style={{ color: COLORS[colorIdx % COLORS.length] }}>
+                            {u.username}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-sm font-bold tabular-nums ${count === 0 ? 'text-green-400' : 'text-zinc-300'}`}>
+                            {count === 0 ? '✨ 0' : count}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-zinc-600 px-4 py-2.5 border-t border-zinc-800/50">
+                Joueurs pickés sans note (absents ou n&apos;ayant pas joué) sur les matchs notés
+              </p>
             </div>
           </section>
         )}
