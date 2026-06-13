@@ -171,7 +171,7 @@ function PlayerCard({
             : initials
           }
         </div>
-        <span className={`flex-1 text-sm font-medium truncate ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
+        <span className={`flex-1 text-sm font-medium ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
           {player.name}
         </span>
         <span className={`text-[10px] font-bold flex-shrink-0 ${POS_COLOR[player.position] ?? 'text-zinc-500'}`}>
@@ -212,8 +212,8 @@ function TeamSection({
             {selected.map(id => {
               const p = players.find(x => x.id === id)
               return p ? (
-                <span key={id} className="text-[10px] bg-green-950/60 text-green-400 border border-green-800/40 px-1.5 py-0.5 rounded-md truncate max-w-[70px]">
-                  {p.name.split(' ').slice(-1)[0]}
+                <span key={id} className="text-[10px] bg-green-950/60 text-green-400 border border-green-800/40 px-1.5 py-0.5 rounded-md">
+                  {p.name}
                 </span>
               ) : null
             })}
@@ -546,7 +546,7 @@ export default function PickClient({
                         >
                           <span className={`text-base leading-none ${isStar ? 'text-yellow-400' : 'text-zinc-700'}`}>★</span>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-semibold truncate leading-tight ${isStar ? 'text-yellow-200' : 'text-zinc-300'}`}>{p.name}</p>
+                            <p className={`text-xs font-semibold leading-tight ${isStar ? 'text-yellow-200' : 'text-zinc-300'}`}>{p.name}</p>
                             <p className={`text-[9px] mt-0.5 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
                               {POS_LABEL[p.position]}{isStar && <span className="ml-1 text-yellow-400 font-bold">×2</span>}
                             </p>
@@ -624,7 +624,7 @@ export default function PickClient({
                                     : 'bg-zinc-900/40 border-zinc-800/50 text-zinc-300 hover:border-zinc-600',
                                 ].join(' ')}
                               >
-                                <span className="flex-1 text-xs font-medium truncate">{p.name}</span>
+                                <span className="flex-1 text-xs font-medium">{p.name}</span>
                                 <span className={`text-[9px] font-bold flex-shrink-0 ${POS_COLOR[p.position] ?? 'text-zinc-600'}`}>
                                   {POS_LABEL[p.position]}
                                 </span>

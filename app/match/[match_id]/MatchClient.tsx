@@ -143,7 +143,7 @@ function PickCard({
                 : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
             ].join(' ')}>
               {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-              <span className="truncate max-w-[72px]">{info.name}</span>
+              <span>{info.name}</span>
               {r?.fotmob_rating != null
                 ? <span className={`font-bold text-[10px] tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
                 : <span className="text-zinc-600 text-[10px]">–</span>

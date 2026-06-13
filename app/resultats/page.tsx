@@ -235,7 +235,7 @@ export default async function ResultatsPage() {
                                     ].join(' ')}
                                   >
                                     {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-                                    <span className="truncate max-w-[56px]">{p.name}</span>
+                                    <span>{p.name}</span>
                                     {r?.fotmob_rating != null
                                       ? <span className={`font-bold tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
                                       : <span className="text-zinc-600">–</span>
