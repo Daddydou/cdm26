@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PointsChart from './PointsChart'
+import MatchBarChart from './MatchBarChart'
 import type { ChartUser, ChartPoint } from './PointsChart'
+import type { BarUser, BarPoint } from './MatchBarChart'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,17 +51,6 @@ const COLORS = [
   '#a855f7', '#06b6d4', '#f97316', '#84cc16',
   '#ec4899', '#14b8a6',
 ]
-
-const BONUS_META: Record<string, { name: string; icon: string; color: string }> = {
-  double_mise:     { name: 'Double Mise',      icon: '⚡', color: '#f59e0b' },
-  troisieme_homme: { name: 'Troisième Homme',  icon: '👤', color: '#3b82f6' },
-  bouclier:        { name: 'Bouclier',         icon: '🛡️', color: '#6b7280' },
-  sniper:          { name: 'Sniper',           icon: '🎯', color: '#ef4444' },
-  passeur_genie:   { name: 'Passeur de Génie', icon: '🎪', color: '#a855f7' },
-  mur:             { name: 'Mur',              icon: '🧱', color: '#14b8a6' },
-  espion:          { name: 'Espion',           icon: '🕵️', color: '#71717a' },
-  all_in:          { name: 'All-In',           icon: '🎲', color: '#f97316' },
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -118,7 +109,7 @@ export default async function StatistiquesPage() {
   const extPicks = (picksRes.data ?? []) as unknown as ExtPick[]
   const ratings  = (ratingsRes.data ?? []) as unknown as RatingRow[]
 
-  // Ratings map : `matchId:playerId` → fotmob_rating (uniquement les notes > 0, i.e. joueurs ayant joué)
+  // Ratings map : `matchId:playerId` → fotmob_rating (uniquement les notes > 0)
   const ratingsMap: Record<string, number> = {}
   for (const r of ratings) {
     if (r.fotmob_rating != null && r.fotmob_rating > 0) {
@@ -126,7 +117,7 @@ export default async function StatistiquesPage() {
     }
   }
 
-  // ── Index picks : matchId → userId → points (pour chart cumulatif) ──────────
+  // ── Index picks : matchId → userId → points ──────────────────────────────────
   const pickIndex: Record<string, Record<string, number>> = {}
   for (const p of extPicks) {
     if (!pickIndex[p.match_id]) pickIndex[p.match_id] = {}
@@ -154,6 +145,19 @@ export default async function StatistiquesPage() {
   })
 
   const chartUsers: ChartUser[] = users.map(u => ({ id: u.id, username: u.username }))
+
+  // ── BarChart : points par match (non cumulés) ────────────────────────────────
+  const barData: BarPoint[] = matches.map(match => {
+    const codeA = match.nation_a?.code?.toUpperCase() ?? '?'
+    const codeB = match.nation_b?.code?.toUpperCase() ?? '?'
+    const point: BarPoint = { label: `${codeA} vs ${codeB}` }
+    for (const u of users) {
+      point[u.id] = pickIndex[match.id]?.[u.id] ?? 0
+    }
+    return point
+  })
+
+  const barUsers: BarUser[] = users.map(u => ({ id: u.id, username: u.username }))
 
   // ── Classement par match : 2pts 1er / 1pt 2e / 0pt 3e+ ─────────────────────
   const matchRankPts: Record<string, Record<string, number>> = {}
@@ -200,28 +204,6 @@ export default async function StatistiquesPage() {
     return (userMedals[b.id]?.gold ?? 0) - (userMedals[a.id]?.gold ?? 0)
   })
 
-  // ── Bonus stats ──────────────────────────────────────────────────────────────
-  type BonusStat = { type: string; count: number; totalPts: number }
-  const bonusMap: Record<string, BonusStat> = {}
-  let noBonusTotalPts = 0
-  let noBonusCount    = 0
-
-  for (const p of extPicks) {
-    if (p.points_finaux == null) continue
-    if (!p.bonus_type) {
-      noBonusTotalPts += p.points_finaux
-      noBonusCount++
-      continue
-    }
-    if (!bonusMap[p.bonus_type]) bonusMap[p.bonus_type] = { type: p.bonus_type, count: 0, totalPts: 0 }
-    bonusMap[p.bonus_type].count++
-    bonusMap[p.bonus_type].totalPts += p.points_finaux
-  }
-
-  const bonusStats = Object.values(bonusMap).sort((a, b) => b.totalPts - a.totalPts)
-  const avgNoBonusPts = noBonusCount > 0 ? Math.round(noBonusTotalPts / noBonusCount * 10) / 10 : 0
-  const maxAvgBonusPts = Math.max(...bonusStats.map(b => b.totalPts / b.count), avgNoBonusPts, 1)
-
   // ── Picks 💩 : joueurs pickés sans note (n'ont pas joué) ────────────────────
   const ratedMatchIds = new Set(ratings.map(r => r.match_id))
   const cacaPicks: Record<string, number> = {}
@@ -259,22 +241,7 @@ export default async function StatistiquesPage() {
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-7 pb-10">
 
-        {/* ── 1. Évolution des points cumulés ── */}
-        <section>
-          <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
-            Évolution des points
-          </h2>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <PointsChart users={chartUsers} data={chartData} />
-          </div>
-          {matches.length > 0 && (
-            <p className="text-[10px] text-zinc-600 mt-2 px-1">
-              {matches.length} match{matches.length > 1 ? 's' : ''} terminé{matches.length > 1 ? 's' : ''} · points cumulés par participant
-            </p>
-          )}
-        </section>
-
-        {/* ── 2. Classement par match ── */}
+        {/* ── 1. Classement par match ── */}
         {matches.length > 0 && users.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
@@ -340,59 +307,37 @@ export default async function StatistiquesPage() {
           </section>
         )}
 
-        {/* ── 4. Statistiques bonus ── */}
-        {bonusStats.length > 0 && (
+        {/* ── 2. Évolution des points cumulés ── */}
+        <section>
+          <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+            Évolution des points
+          </h2>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+            <PointsChart users={chartUsers} data={chartData} />
+          </div>
+          {matches.length > 0 && (
+            <p className="text-[10px] text-zinc-600 mt-2 px-1">
+              {matches.length} match{matches.length > 1 ? 's' : ''} terminé{matches.length > 1 ? 's' : ''} · points cumulés par participant
+            </p>
+          )}
+        </section>
+
+        {/* ── 3. Points par match ── */}
+        {matches.length > 0 && users.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
-              Bonus utilisés
+              Points par match
             </h2>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
-
-              {avgNoBonusPts > 0 && (
-                <div className="flex items-center gap-3 pb-2 border-b border-zinc-800/60">
-                  <div className="w-32 text-right text-[11px] text-zinc-500">Sans bonus</div>
-                  <div className="flex-1 h-3 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-zinc-600"
-                      style={{ width: `${(avgNoBonusPts / maxAvgBonusPts) * 100}%` }}
-                    />
-                  </div>
-                  <div className="w-24 text-[11px] text-zinc-500 tabular-nums">
-                    {avgNoBonusPts} pts moy.
-                  </div>
-                </div>
-              )}
-
-              {bonusStats.map(stat => {
-                const meta   = BONUS_META[stat.type]
-                const avgPts = Math.round(stat.totalPts / stat.count * 10) / 10
-                const pct    = Math.round((avgPts / maxAvgBonusPts) * 100)
-                return (
-                  <div key={stat.type} className="flex items-center gap-3">
-                    <div className="w-32 text-right text-[11px] text-zinc-300 leading-tight">
-                      {meta ? `${meta.icon} ${meta.name}` : stat.type}
-                    </div>
-                    <div className="flex-1 h-3 bg-zinc-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${pct}%`, backgroundColor: meta?.color ?? '#2aad66' }}
-                      />
-                    </div>
-                    <div className="w-24 text-[11px] text-zinc-400 tabular-nums">
-                      {avgPts} pts · {stat.count}×
-                    </div>
-                  </div>
-                )
-              })}
-
-              <p className="text-[10px] text-zinc-600 pt-1">
-                Moyenne des points finaux par match · nombre d&apos;utilisations
-              </p>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+              <MatchBarChart users={barUsers} data={barData} />
             </div>
+            <p className="text-[10px] text-zinc-600 mt-2 px-1">
+              Points gagnés par participant sur chaque match
+            </p>
           </section>
         )}
 
-        {/* ── 5. Picks 💩 ── */}
+        {/* ── 4. Picks 💩 ── */}
         {ratedMatchIds.size > 0 && users.length > 0 && (
           <section>
             <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
