@@ -125,10 +125,12 @@ export default async function StatistiquesPage() {
   const extPicks = (picksRes.data ?? []) as unknown as ExtPick[]
   const ratings  = (ratingsRes.data ?? []) as unknown as RatingRow[]
 
-  // Ratings map : `matchId:playerId` → fotmob_rating
+  // Ratings map : `matchId:playerId` → fotmob_rating (uniquement les notes > 0, i.e. joueurs ayant joué)
   const ratingsMap: Record<string, number> = {}
   for (const r of ratings) {
-    if (r.fotmob_rating != null) ratingsMap[`${r.match_id}:${r.player_id}`] = r.fotmob_rating
+    if (r.fotmob_rating != null && r.fotmob_rating > 0) {
+      ratingsMap[`${r.match_id}:${r.player_id}`] = r.fotmob_rating
+    }
   }
 
   // ── Index picks : matchId → userId → points (pour chart cumulatif) ──────────
@@ -182,7 +184,7 @@ export default async function StatistiquesPage() {
     for (const { id, pos } of slots) {
       if (!id || !pos) continue
       const rating = ratingsMap[`${pick.match_id}:${id}`]
-      if (rating == null || rating === 0) continue
+      if (!rating) continue
       const key = pos as 'GK' | 'DEF' | 'MID' | 'FWD'
       if (acc[key]) acc[key].push(rating)
     }
@@ -290,7 +292,7 @@ export default async function StatistiquesPage() {
     for (const pid of [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]) {
       if (!pid) continue
       const rating = ratingsMap[`${pick.match_id}:${pid}`]
-      if (rating == null || rating === 0) {
+      if (!rating) {
         cacaPicks[pick.user_id] = (cacaPicks[pick.user_id] ?? 0) + 1
       }
     }
