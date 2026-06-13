@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import PointsChart from './PointsChart'
-import MatchBarChart from './MatchBarChart'
+import MatchLineChart from './MatchLineChart'
 import type { ChartUser, ChartPoint } from './PointsChart'
-import type { BarUser, BarPoint } from './MatchBarChart'
+import type { MatchLineUser, MatchLinePoint } from './MatchLineChart'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -146,18 +146,21 @@ export default async function StatistiquesPage() {
 
   const chartUsers: ChartUser[] = users.map(u => ({ id: u.id, username: u.username }))
 
-  // ── BarChart : points par match (non cumulés) ────────────────────────────────
-  const barData: BarPoint[] = matches.map(match => {
+  // ── LineChart : points par match (non cumulés) ──────────────────────────────
+  const matchLineData: MatchLinePoint[] = matches.map(match => {
     const codeA = match.nation_a?.code?.toUpperCase() ?? '?'
     const codeB = match.nation_b?.code?.toUpperCase() ?? '?'
-    const point: BarPoint = { label: `${codeA} vs ${codeB}` }
+    const point: MatchLinePoint = {
+      label:   `${codeA} vs ${codeB}`,
+      nations: `${iso(codeA)} ${match.nation_a?.name ?? '?'} – ${iso(codeB)} ${match.nation_b?.name ?? '?'}`,
+    }
     for (const u of users) {
       point[u.id] = pickIndex[match.id]?.[u.id] ?? 0
     }
     return point
   })
 
-  const barUsers: BarUser[] = users.map(u => ({ id: u.id, username: u.username }))
+  const matchLineUsers: MatchLineUser[] = users.map(u => ({ id: u.id, username: u.username }))
 
   // ── Classement par match : 2pts 1er / 1pt 2e / 0pt 3e+ ─────────────────────
   const matchRankPts: Record<string, Record<string, number>> = {}
@@ -329,7 +332,7 @@ export default async function StatistiquesPage() {
               Points par match
             </h2>
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-              <MatchBarChart users={barUsers} data={barData} />
+              <MatchLineChart users={matchLineUsers} data={matchLineData} />
             </div>
             <p className="text-[10px] text-zinc-600 mt-2 px-1">
               Points gagnés par participant sur chaque match
