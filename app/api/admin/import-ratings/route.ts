@@ -33,7 +33,8 @@ const TEAM_MAP: Record<string, string> = {
   'Czech Republic': 'Rép. Tchèque', 'Tchéquie': 'Rép. Tchèque', 'République Tchèque': 'Rép. Tchèque',
   'Ivory Coast': "Côte d'Ivoire", 'Bosnie-Herzégovine': 'Bosnie-Herzégovine',
   'DR Congo': 'RD Congo', 'South Korea': 'Corée du Sud',
-  'United States': 'Etats-Unis', USA: 'Etats-Unis',
+  'États-Unis': 'États-Unis', 'Etats-Unis': 'États-Unis',
+  'United States': 'États-Unis', USA: 'États-Unis',
   'Saudi Arabia': 'Arabie Saoudite', 'New Zealand': 'Nouvelle-Zélande',
 }
 
