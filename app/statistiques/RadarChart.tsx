@@ -66,10 +66,7 @@ export default function RadarChart({
             borderRadius: '8px',
             fontSize: '12px',
           }}
-          formatter={(value: number | string | undefined, name: string) => [
-            value == null ? '' : typeof value === 'number' ? value.toFixed(1) : value,
-            name,
-          ]}
+          formatter={(value: any, name: any) => [value == null ? '' : typeof value === 'number' ? value.toFixed(1) : String(value), name]}
         />
         <Legend
           wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
