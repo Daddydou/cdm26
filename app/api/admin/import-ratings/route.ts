@@ -42,6 +42,16 @@ function mapTeam(name: string): string {
   return TEAM_MAP[name] ?? name
 }
 
+// team → { display name → canonical DB name }
+const PLAYER_ALIASES: Record<string, Record<string, string>> = {
+  'Brésil': { 'Gabriel': 'Gabriel Magalhães' },
+}
+
+function resolveAlias(name: string, team: string): string {
+  const canonical = mapTeam(team)
+  return PLAYER_ALIASES[canonical]?.[name] ?? name
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function sofaFetch(url: string) {
@@ -167,7 +177,8 @@ export async function POST(request: Request) {
     }> = []
 
     for (const p of players) {
-      const playerId = findPlayer(p.name, dbPl)
+      const resolvedName = resolveAlias(p.name, p.team)
+      const playerId = findPlayer(resolvedName, dbPl)
       if (playerId) {
         totalMatched++
         upsertRows.push({
