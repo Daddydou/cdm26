@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 const PHASES = [
   { value: 'groupes',       label: 'Phase de groupes' },
+  { value: 'seiziemes',     label: 'Seizièmes de finale' },
   { value: 'huitiemes',     label: 'Huitièmes de finale' },
   { value: 'quarts',        label: 'Quarts de finale' },
   { value: 'demis',         label: 'Demi-finales' },

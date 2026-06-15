@@ -16,9 +16,11 @@ const BONUSES = [
 
 const PHASES = [
   { label: 'Phase de groupes',  mult: '×1',   color: 'text-zinc-400' },
-  { label: '8es de finale',     mult: '×1.2', color: 'text-sky-400' },
-  { label: 'Quarts de finale',  mult: '×1.4', color: 'text-blue-400' },
-  { label: 'Demi-finales',      mult: '×1.6', color: 'text-violet-400' },
+  { label: '16es de finale',    mult: '×1.2', color: 'text-sky-400' },
+  { label: '8es de finale',     mult: '×1.4', color: 'text-blue-400' },
+  { label: 'Quarts de finale',  mult: '×1.6', color: 'text-indigo-400' },
+  { label: 'Demi-finales',      mult: '×1.8', color: 'text-violet-400' },
+  { label: 'Finale 3ème place', mult: '×1.8', color: 'text-violet-400' },
   { label: 'Finale',            mult: '×2',   color: 'text-amber-400' },
 ]
 

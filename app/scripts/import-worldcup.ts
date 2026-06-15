@@ -217,55 +217,55 @@ const GROUP_MATCHES: MatchDef[] = [
 
 const TBD = 'À Déterminer'
 
-// Tour de 32 (huitièmes) : 16 matchs du 28 juin au 5 juillet — multiplier x1.2
+// Seizièmes de finale : 16 matchs du 28 juin au 5 juillet — multiplier x1.2
 const TOUR_32: MatchDef[] = [
-  { a: TBD, b: TBD, kickoff: '2026-06-28T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-06-28T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-06-29T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-06-29T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-06-30T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-06-30T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-01T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-01T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-02T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-02T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-03T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-03T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-04T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-04T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-05T18:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
-  { a: TBD, b: TBD, kickoff: '2026-07-05T21:00:00Z', phase: 'huitiemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-06-28T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-06-28T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-06-29T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-06-29T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-06-30T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-06-30T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-01T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-01T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-02T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-02T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-03T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-03T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-04T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-04T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-05T18:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
+  { a: TBD, b: TBD, kickoff: '2026-07-05T21:00:00Z', phase: 'seiziemes', multiplier: 1.2 },
 ]
 
-// Tour de 16 : 8 matchs du 6 au 9 juillet — multiplier x1.4
+// Huitièmes de finale : 8 matchs du 6 au 9 juillet — multiplier x1.4
 const TOUR_16: MatchDef[] = [
-  { a: TBD, b: TBD, kickoff: '2026-07-06T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-06T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-07T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-07T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-08T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-08T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-09T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-09T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-06T18:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-06T21:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-07T18:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-07T21:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-08T18:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-08T21:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-09T18:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-09T21:00:00Z', phase: 'huitiemes', multiplier: 1.4 },
 ]
 
-// Quarts de finale : 4 matchs du 11 au 13 juillet — multiplier x1.4
+// Quarts de finale : 4 matchs du 11 au 13 juillet — multiplier x1.6
 const QUARTS: MatchDef[] = [
-  { a: TBD, b: TBD, kickoff: '2026-07-11T18:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-11T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-12T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
-  { a: TBD, b: TBD, kickoff: '2026-07-13T21:00:00Z', phase: 'quarts', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-11T18:00:00Z', phase: 'quarts', multiplier: 1.6 },
+  { a: TBD, b: TBD, kickoff: '2026-07-11T21:00:00Z', phase: 'quarts', multiplier: 1.6 },
+  { a: TBD, b: TBD, kickoff: '2026-07-12T21:00:00Z', phase: 'quarts', multiplier: 1.6 },
+  { a: TBD, b: TBD, kickoff: '2026-07-13T21:00:00Z', phase: 'quarts', multiplier: 1.6 },
 ]
 
-// Demi-finales : 2 matchs — multiplier x1.6
+// Demi-finales : 2 matchs — multiplier x1.8
 const DEMIS: MatchDef[] = [
-  { a: TBD, b: TBD, kickoff: '2026-07-14T21:00:00Z', phase: 'demis', multiplier: 1.6 },
-  { a: TBD, b: TBD, kickoff: '2026-07-15T21:00:00Z', phase: 'demis', multiplier: 1.6 },
+  { a: TBD, b: TBD, kickoff: '2026-07-14T21:00:00Z', phase: 'demis', multiplier: 1.8 },
+  { a: TBD, b: TBD, kickoff: '2026-07-15T21:00:00Z', phase: 'demis', multiplier: 1.8 },
 ]
 
 // Finale 3e place + Finale
 const FINALES: MatchDef[] = [
-  { a: TBD, b: TBD, kickoff: '2026-07-18T18:00:00Z', phase: 'finale_3eme', multiplier: 1.4 },
+  { a: TBD, b: TBD, kickoff: '2026-07-18T18:00:00Z', phase: 'finale_3eme', multiplier: 1.8 },
   { a: TBD, b: TBD, kickoff: '2026-07-19T21:00:00Z', phase: 'finale',      multiplier: 2.0 },
 ]
 
