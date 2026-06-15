@@ -61,8 +61,20 @@ async function sofaFetch(url: string) {
 }
 
 // normalizeName + tirets → espaces ("Kim Seung-Gyu" → "kim seung gyu")
+// Utilisé uniquement par findPlayer — ne pas modifier.
 function normalize(name: string): string {
   return normalizeName(name).replace(/-/g, ' ')
+}
+
+// Normalisation pour noms d'équipes : ̀-ͯ explicites (évite le bug
+// d'encodage des caractères literaux dans normalizeName), non-alphanum → espace.
+function normalizeTeam(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
 }
 
 function findPlayer(
@@ -148,18 +160,20 @@ export async function POST(request: Request) {
   let matchesProcessed = 0
 
   function findDbMatch(home: string, away: string): DbMatch | undefined {
-    const nh = normalize(mapTeam(home))
-    const na = normalize(mapTeam(away))
-    return dbMatches.find(m => {
-      const mna = normalize(m.nation_a?.name ?? '')
-      const mnb = normalize(m.nation_b?.name ?? '')
-      // Essaie home=nation_a/away=nation_b ET l'ordre inversé
-      return (
-        (nh.includes(mna) || mna.includes(nh)) && (na.includes(mnb) || mnb.includes(na))
-      ) || (
-        (na.includes(mna) || mna.includes(na)) && (nh.includes(mnb) || mnb.includes(nh))
-      )
+    const nh = normalizeTeam(mapTeam(home))
+    const na = normalizeTeam(mapTeam(away))
+    const found = dbMatches.find(m => {
+      const mna = normalizeTeam(m.nation_a?.name ?? '')
+      const mnb = normalizeTeam(m.nation_b?.name ?? '')
+      return (nh === mna && na === mnb) || (nh === mnb && na === mna)
     })
+    if (!found) {
+      const candidates = dbMatches
+        .map(m => `${normalizeTeam(m.nation_a?.name ?? '')} vs ${normalizeTeam(m.nation_b?.name ?? '')}`)
+        .join(' | ')
+      console.warn(`[import-ratings] match non trouvé — reçu: "${nh}" vs "${na}" | candidats: ${candidates}`)
+    }
+    return found
   }
 
   async function upsertPlayers(dbMatch: DbMatch, players: PlayerInput[], source: string) {
@@ -217,7 +231,21 @@ export async function POST(request: Request) {
   if (bodyMatches) {
     let calculated = false
     for (const m of bodyMatches) {
-      const dbMatch = findDbMatch(m.home, m.away)
+      let dbMatch: DbMatch | undefined
+
+      // Résolution par sofaId si fourni (nécessite colonne sofa_id dans cdm_matches)
+      if (m.sofaId > 0) {
+        const { data } = await admin
+          .from('cdm_matches')
+          .select('id, nation_a:cdm_nations!nation_a_id(id, name), nation_b:cdm_nations!nation_b_id(id, name)')
+          .eq('sofa_id', m.sofaId)
+          .maybeSingle()
+        if (data) dbMatch = data as unknown as DbMatch
+      }
+
+      // Fallback : résolution par home + away normalisés
+      if (!dbMatch) dbMatch = findDbMatch(m.home, m.away)
+
       if (!dbMatch) {
         allUnmatched.push(`Match non trouvé : ${m.home} vs ${m.away}`)
         continue
