@@ -140,7 +140,7 @@ const GROUP_MATCHES: MatchDef[] = [
   { a: 'Paraguay',           b: 'Australie',            kickoff: '2026-06-26T02:00:00Z', phase: 'groupes' },
 
   // ── Groupe E ─────────────────────────────────────────────────────────────────
-  { a: 'Allemagne',          b: 'Curaçao',             kickoff: '2026-06-14T19:00:00Z', phase: 'groupes' },
+  { a: 'Allemagne',          b: 'Curaçao',             kickoff: '2026-06-14T17:00:00Z', phase: 'groupes' },
   { a: "Côte d'Ivoire",     b: 'Équateur',            kickoff: '2026-06-14T23:00:00Z', phase: 'groupes' },
   { a: 'Allemagne',          b: "Côte d'Ivoire",       kickoff: '2026-06-20T18:00:00Z', phase: 'groupes' },
   { a: 'Équateur',          b: 'Curaçao',             kickoff: '2026-06-21T00:00:00Z', phase: 'groupes' },
@@ -331,7 +331,7 @@ export async function importWorldCup(): Promise<ImportResult> {
     return { error: 'Nation "À Déterminer" introuvable après upsert', ...zero }
   }
 
-  // ── 2. Matchs — upsert idempotent (contrainte unique nation_a_id,nation_b_id,kickoff_at) ──
+  // ── 2. Matchs — vérification paire+jour avant insertion ──────────────────
 
   type MatchRow = {
     nation_a_id:       string
@@ -342,7 +342,27 @@ export async function importWorldCup(): Promise<ImportResult> {
     points_multiplier: number
   }
 
-  const matchesToInsert: MatchRow[] = []
+  // Charge les matchs réels existants (exclut les placeholders TBD vs TBD)
+  const { data: existingMatchesRaw, error: loadMatchesError } = await admin
+    .from('cdm_matches')
+    .select('id, nation_a_id, nation_b_id, kickoff_at')
+    .neq('nation_a_id', tbdId)
+    .neq('nation_b_id', tbdId)
+
+  if (loadMatchesError) {
+    return { error: `Chargement matchs existants: ${loadMatchesError.message}`, ...zero }
+  }
+
+  // Set de déduplication : "YYYY-MM-DD:natAId:natBId" dans les deux sens
+  const existingPairDays = new Set<string>()
+  for (const m of existingMatchesRaw ?? []) {
+    const day = m.kickoff_at.slice(0, 10)
+    existingPairDays.add(`${day}:${m.nation_a_id}:${m.nation_b_id}`)
+    existingPairDays.add(`${day}:${m.nation_b_id}:${m.nation_a_id}`)
+  }
+
+  const realMatchesToInsert: MatchRow[] = []
+  const tbdMatchesToUpsert:  MatchRow[] = []
   let matches_skipped = 0
 
   for (const m of ALL_MATCHES) {
@@ -355,30 +375,71 @@ export async function importWorldCup(): Promise<ImportResult> {
       continue
     }
 
-    matchesToInsert.push({
+    const row: MatchRow = {
       nation_a_id:       nationAId,
       nation_b_id:       nationBId,
       kickoff_at:        m.kickoff,
       phase:             m.phase,
       status:            'a_venir',
       points_multiplier: m.multiplier ?? 1,
-    })
-  }
+    }
 
-  const { error: upsertMatchesError } = await admin
-    .from('cdm_matches')
-    .upsert(matchesToInsert, { onConflict: 'nation_a_id,nation_b_id,kickoff_at', ignoreDuplicates: true })
+    // Placeholders éliminatoires (nation_a_id === nation_b_id) :
+    // upsert par schedule, jamais de matching par paire
+    if (nationAId === nationBId) {
+      tbdMatchesToUpsert.push(row)
+      continue
+    }
 
-  if (upsertMatchesError) {
-    return {
-      error: `Upsert matchs: ${upsertMatchesError.message}`,
-      nations_new, nations_existing, matches_inserted: 0, matches_skipped,
-      total_matches: ALL_MATCHES.length, details,
+    // Match réel : vérifie si la paire existe déjà ce jour-là (dans les deux sens)
+    const day = m.kickoff.slice(0, 10)
+    const key = `${day}:${nationAId}:${nationBId}`
+
+    if (existingPairDays.has(key)) {
+      details.push(`Ignoré (paire+jour existant): ${m.a} vs ${m.b} le ${day}`)
+      matches_skipped++
+    } else {
+      realMatchesToInsert.push(row)
+      // Marque pour éviter les doublons intra-batch
+      existingPairDays.add(`${day}:${nationAId}:${nationBId}`)
+      existingPairDays.add(`${day}:${nationBId}:${nationAId}`)
     }
   }
 
-  const matches_inserted = matchesToInsert.length
-  details.push(`Matchs upsertés: ${matches_inserted} | Nations inconnues ignorées: ${matches_skipped}`)
+  // Insère les matchs réels nouveaux
+  if (realMatchesToInsert.length > 0) {
+    const { error: insertErr } = await admin
+      .from('cdm_matches')
+      .insert(realMatchesToInsert)
+    if (insertErr) {
+      return {
+        error: `Insert matchs réels: ${insertErr.message}`,
+        nations_new, nations_existing, matches_inserted: 0, matches_skipped,
+        total_matches: ALL_MATCHES.length, details,
+      }
+    }
+  }
+
+  // Upsert des placeholders éliminatoires par schedule (comportement inchangé)
+  if (tbdMatchesToUpsert.length > 0) {
+    const { error: upsertTbdErr } = await admin
+      .from('cdm_matches')
+      .upsert(tbdMatchesToUpsert, { onConflict: 'nation_a_id,nation_b_id,kickoff_at', ignoreDuplicates: true })
+    if (upsertTbdErr) {
+      return {
+        error: `Upsert placeholders: ${upsertTbdErr.message}`,
+        nations_new, nations_existing, matches_inserted: 0, matches_skipped,
+        total_matches: ALL_MATCHES.length, details,
+      }
+    }
+  }
+
+  const matches_inserted = realMatchesToInsert.length + tbdMatchesToUpsert.length
+  details.push(
+    `Matchs réels insérés: ${realMatchesToInsert.length} | ` +
+    `Placeholders upsertés: ${tbdMatchesToUpsert.length} | ` +
+    `Ignorés (paire+jour déjà en base): ${matches_skipped}`
+  )
 
   return { nations_new, nations_existing, matches_inserted, matches_skipped, total_matches: ALL_MATCHES.length, details }
 }
