@@ -45,14 +45,16 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
   if (picksError) return { error: picksError.message, computed: [] }
   if (!picks || picks.length === 0) return { error: null, computed: [] }
 
-  // Collecte tous les IDs joueurs + le 3e homme si troisieme_homme
+  // Collecte tous les IDs joueurs + bonus_player_id pour troisieme_homme
   const allPlayerIds = [...new Set(
     picks.flatMap(p => {
       const ids: string[] = [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id]
         .filter(Boolean) as string[]
       if (p.bonus_type === 'troisieme_homme') {
+        if (p.bonus_player_id) ids.push(p.bonus_player_id)
+        // fallback legacy : certains picks stockaient le 3e joueur dans bonus_data.player_id
         const bd = p.bonus_data as { player_id?: string } | null
-        if (bd?.player_id) ids.push(bd.player_id)
+        if (bd?.player_id && bd.player_id !== p.bonus_player_id) ids.push(bd.player_id)
       }
       return ids
     })
@@ -76,60 +78,73 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     }])
   )
 
-  // ── Passe 1 : calcul points_bruts (sans all_in) ───────────────────────────
-  type Calc = { pick: typeof picks[0]; points_bruts: number; isAllIn: boolean; mise: number }
+  // ── Passe 1 : points_bruts (4 joueurs pickés) + points_finaux_base (bonus appliqué) ──
+  type Calc = {
+    pick:               typeof picks[0]
+    points_bruts:       number   // somme des 4 joueurs, sans bonus de type
+    points_finaux_base: number   // après bonus, avant multiplier et all_in
+    isAllIn:            boolean
+    mise:               number
+  }
   const calcs: Calc[] = []
 
   for (const pick of picks) {
-    const bd              = pick.bonus_data as Record<string, unknown> | null
-    const bonusPlayerId   = pick.bonus_player_id
-    const isBouclier      = pick.bonus_type === 'bouclier'
-    const isDoubleMise    = pick.bonus_type === 'double_mise'
-    const isSniper        = pick.bonus_type === 'sniper'
-    const isPasseur       = pick.bonus_type === 'passeur_genie'
-    const isMur           = pick.bonus_type === 'mur'
-    const isAllIn         = pick.bonus_type === 'all_in'
+    const bd           = pick.bonus_data as Record<string, unknown> | null
+    const isBouclier   = pick.bonus_type === 'bouclier'
+    const isDoubleMise = pick.bonus_type === 'double_mise'
+    const isSniper     = pick.bonus_type === 'sniper'
+    const isPasseur    = pick.bonus_type === 'passeur_genie'
+    const isMur        = pick.bonus_type === 'mur'
+    const isAllIn      = pick.bonus_type === 'all_in'
+    const isTroisiemeH = pick.bonus_type === 'troisieme_homme'
+    const isJoueurX2   = pick.bonus_type === 'joueur_x2'
 
-    let ids: string[] = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
+    const ids = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
       .filter(Boolean) as string[]
 
-    if (pick.bonus_type === 'troisieme_homme' && bd?.player_id) {
-      ids = [...ids, bd.player_id as string]
-    }
-
-    let total      = 0
-    let hasGoal    = false
-    let hasAssist  = false
-    let hasPenSave = false
+    // points_bruts : somme des ratings des 4 joueurs pickés uniquement
+    let points_bruts = 0
+    let totalGoals   = 0
+    let totalAssists = 0
+    let hasPenSave   = false
 
     for (const id of ids) {
       const r = ratingsMap[id]
       let rating = r?.fotmob_rating ?? 0
 
-      if (isBouclier && rating < 5) rating = 5
-      if (id === bonusPlayerId)      rating *= 2
+      if (isBouclier && rating < 5)                       rating = 5   // plancher à 5
+      if (isJoueurX2 && id === pick.bonus_player_id)      rating *= 2  // ×2 joueur désigné
 
-      total += rating
-
-      if ((r?.goals ?? 0) > 0)   hasGoal    = true
-      if ((r?.assists ?? 0) > 0) hasAssist  = true
-      if (r?.penalty_saved)      hasPenSave = true
+      points_bruts += rating
+      totalGoals   += r?.goals   ?? 0
+      totalAssists += r?.assists ?? 0
+      if (r?.penalty_saved) hasPenSave = true
     }
 
-    if (isSniper && hasGoal)    total += 3
-    if (isPasseur && hasAssist) total += 3
-    if (isMur && hasPenSave)    total += 5
-    if (isDoubleMise)           total *= 2
+    // points_finaux_base : applique le bonus_type sur points_bruts
+    let pf = points_bruts
+
+    if (isTroisiemeH) {
+      // 3e joueur : bonus_player_id est la source canonique ; bonus_data.player_id = fallback
+      const r3Id = pick.bonus_player_id
+                || (pick.bonus_data as { player_id?: string } | null)?.player_id
+      if (r3Id) pf += ratingsMap[r3Id]?.fotmob_rating ?? 0
+    }
+    if (isSniper)            pf += totalGoals   * 3   // +3 par but
+    if (isPasseur)           pf += totalAssists * 3   // +3 par passe décisive
+    if (isMur && hasPenSave) pf += 8                  // +8 si penalty arrêté
+    if (isDoubleMise)        pf *= 2                   // ×2
 
     calcs.push({
       pick,
-      points_bruts: Math.round(total * 100) / 100,
+      points_bruts:       Math.round(points_bruts * 100) / 100,
+      points_finaux_base: Math.round(pf * 100) / 100,
       isAllIn,
       mise: isAllIn ? Math.min(10, Math.max(1, Number(bd?.amount ?? 5))) : 0,
     })
   }
 
-  // ── Passe 2 : All-In (comparaison avec moyenne des autres) ────────────────
+  // ── Passe 2 : All-In (comparaison avec moyenne des non-all-in) ────────────
   const nonAllInAvg = (() => {
     const base = calcs.filter(c => !c.isAllIn)
     if (base.length === 0) return 0
@@ -140,15 +155,18 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
   const affectedUserIds = new Set<string>()
 
   for (const calc of calcs) {
-    let { points_bruts } = calc
+    let points_bruts  = calc.points_bruts
+    let points_finaux = calc.points_finaux_base
 
     if (calc.isAllIn) {
-      points_bruts = calc.points_bruts > nonAllInAvg
+      const adjusted = calc.points_bruts > nonAllInAvg
         ? Math.round((calc.points_bruts + calc.mise) * 100) / 100
         : Math.round(Math.max(0, calc.points_bruts - calc.mise) * 100) / 100
+      points_bruts  = adjusted
+      points_finaux = adjusted
     }
 
-    const points_finaux = Math.round(points_bruts * multiplier * 100) / 100
+    points_finaux = Math.round(points_finaux * multiplier * 100) / 100
 
     const { error: updateError } = await admin
       .from('cdm_picks')
