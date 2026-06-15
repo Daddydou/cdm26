@@ -207,7 +207,7 @@ export default async function HomePage() {
             user:cdm_users!user_id(id, username, photo_url)
           `)
           .eq('match_id', enCoursMatch.id)
-          .order('created_at', { ascending: true })
+          .order('points_finaux', { ascending: false, nullsFirst: false })
       : Promise.resolve({ data: [] }),
   ])
 
@@ -238,6 +238,7 @@ export default async function HomePage() {
     ratingsMap[`${r.match_id}:${r.player_id}`] = r
   }
 
+  console.log('[page] enCours picks:', enCoursPicksRes.data?.length, '| error:', (enCoursPicksRes as { error?: { message?: string } }).error?.message)
   const enCoursPicks = (enCoursPicksRes.data ?? []) as unknown as MatchPick[]
 
   return (
