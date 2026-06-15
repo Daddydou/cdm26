@@ -119,13 +119,16 @@ export default async function HomePage() {
       return nationFilter ? q.or(nationFilter) : q
     })(),
 
-    // 4 derniers matchs terminés — sans filtre nation pour tout afficher
-    supabase
-      .from('cdm_matches')
-      .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
-      .eq('status', 'termine')
-      .order('kickoff_at', { ascending: false })
-      .limit(4),
+    // 4 derniers matchs terminés — filtre nations retenues
+    (() => {
+      const q = supabase
+        .from('cdm_matches')
+        .select('id, kickoff_at, status, score_a, score_b, phase, nation_a:cdm_nations!nation_a_id(name, code), nation_b:cdm_nations!nation_b_id(name, code)')
+        .eq('status', 'termine')
+        .order('kickoff_at', { ascending: false })
+        .limit(4)
+      return nationFilter ? q.or(nationFilter) : q
+    })(),
 
     user
       ? supabase
@@ -135,18 +138,20 @@ export default async function HomePage() {
           .single()
       : Promise.resolve({ data: null, error: null }),
 
-    // Match actuellement en cours (le plus récent si plusieurs)
-    supabase
-      .from('cdm_matches')
-      .select(`
-        id, kickoff_at, status, score_a, score_b, phase,
-        nation_a:cdm_nations!nation_a_id(name, code),
-        nation_b:cdm_nations!nation_b_id(name, code)
-      `)
-      .eq('status', 'en_cours')
-      .order('kickoff_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    // Match actuellement en cours (le plus récent si plusieurs) — filtre nations retenues
+    (() => {
+      const q = supabase
+        .from('cdm_matches')
+        .select(`
+          id, kickoff_at, status, score_a, score_b, phase,
+          nation_a:cdm_nations!nation_a_id(name, code),
+          nation_b:cdm_nations!nation_b_id(name, code)
+        `)
+        .eq('status', 'en_cours')
+        .order('kickoff_at', { ascending: false })
+        .limit(1)
+      return nationFilter ? q.or(nationFilter).maybeSingle() : q.maybeSingle()
+    })(),
   ])
 
   const me = meRes.data
