@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import NotificationButton from './components/NotificationButton'
+import MatchPickRow, { type MatchPick, type MatchRating } from './components/MatchPickRow'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,27 +27,6 @@ type Match = {
   phase: string | null
   nation_a: { name: string; code: string } | null
   nation_b: { name: string; code: string } | null
-}
-
-type MatchPick = {
-  id: string
-  match_id: string
-  points_finaux: number | null
-  bonus_player_id: string | null
-  player_a1: { id: string; name: string; position: string } | null
-  player_a2: { id: string; name: string; position: string } | null
-  player_b1: { id: string; name: string; position: string } | null
-  player_b2: { id: string; name: string; position: string } | null
-  user: { id: string; username: string; photo_url: string | null } | null
-}
-
-type MatchRating = {
-  player_id: string
-  match_id: string
-  fotmob_rating: number | null
-  goals: number | null
-  assists: number | null
-  penalty_saved: number | null
 }
 
 // ─── Drapeaux ─────────────────────────────────────────────────────────────────
@@ -180,7 +160,8 @@ export default async function HomePage() {
       ? supabaseAdmin
           .from('cdm_picks')
           .select(`
-            id, match_id, points_finaux, bonus_player_id,
+            id, match_id, points_finaux, bonus_type, bonus_player_id,
+            bonus_player:cdm_players!bonus_player_id(id, name, position),
             player_a1:cdm_players!player_a1_id(id, name, position),
             player_a2:cdm_players!player_a2_id(id, name, position),
             player_b1:cdm_players!player_b1_id(id, name, position),
@@ -447,70 +428,16 @@ export default async function HomePage() {
                     {/* Classement participants */}
                     {ranked.length > 0 && (
                       <div className="border-t border-zinc-800/60 px-4 py-3 space-y-2.5">
-                        {ranked.map((pick, i) => {
-                          const isMe = pick.user?.id === me?.id
-                          const players = [pick.player_a1, pick.player_a2, pick.player_b1, pick.player_b2].filter(Boolean) as NonNullable<MatchPick['player_a1']>[]
-                          return (
-                            <div key={pick.id} className={`flex items-start gap-2 ${isMe ? 'opacity-100' : ''}`}>
-                              {/* Rang */}
-                              <div className="w-5 text-center flex-shrink-0 pt-0.5">
-                                {i < 3
-                                  ? <span className="text-sm leading-none">{MEDALS[i]}</span>
-                                  : <span className="text-[11px] text-zinc-600 font-mono tabular-nums">{i + 1}</span>
-                                }
-                              </div>
-
-                              {/* Contenu */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <div className="w-4 h-4 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 overflow-hidden flex items-center justify-center text-[8px] font-semibold text-zinc-500">
-                                    {pick.user?.photo_url
-                                      ? <Image src={pick.user.photo_url} alt="" width={16} height={16} className="object-cover w-full h-full" />
-                                      : pick.user?.username?.[0]?.toUpperCase() ?? '?'
-                                    }
-                                  </div>
-                                  <span className={`text-[12px] font-semibold truncate ${isMe ? 'text-green-400' : 'text-zinc-100'}`}>
-                                    {pick.user?.username ?? '?'}
-                                    {isMe && <span className="ml-1 text-[10px] text-zinc-600 font-normal">moi</span>}
-                                  </span>
-                                  <span className={`text-[11px] font-bold tabular-nums ml-auto flex-shrink-0 ${pick.points_finaux != null && pick.points_finaux > 0 ? 'text-green-400' : 'text-zinc-500'}`}>
-                                    {pick.points_finaux != null ? `${pick.points_finaux} pts` : '– pts'}
-                                  </span>
-                                </div>
-
-                                {/* Joueurs */}
-                                <div className="flex flex-wrap gap-1">
-                                  {players.map(p => {
-                                    const rKey = `${match.id}:${p.id}`
-                                    const r = ratingsMap[rKey]
-                                    const isStar = p.id === pick.bonus_player_id
-                                    return (
-                                      <span
-                                        key={p.id}
-                                        className={[
-                                          'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border',
-                                          isStar
-                                            ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
-                                            : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
-                                        ].join(' ')}
-                                      >
-                                        {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-                                        <span>{p.name}</span>
-                                        {r?.fotmob_rating != null
-                                          ? <span className={`font-bold tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
-                                          : <span className="text-zinc-600">–</span>
-                                        }
-                                        {(r?.goals ?? 0) > 0 && <span>⚽</span>}
-                                        {(r?.assists ?? 0) > 0 && <span>🅰️</span>}
-                                        {(r?.penalty_saved ?? 0) > 0 && <span>🧤</span>}
-                                      </span>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
+                        {ranked.map((pick, i) => (
+                          <MatchPickRow
+                            key={pick.id}
+                            pick={pick}
+                            rank={i + 1}
+                            matchId={match.id}
+                            ratingsMap={ratingsMap}
+                            cdmUserId={me?.id ?? null}
+                          />
+                        ))}
                       </div>
                     )}
                   </div>
