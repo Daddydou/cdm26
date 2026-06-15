@@ -94,7 +94,7 @@ export default async function HomePage() {
   const tomorrowParis = formatInTimeZone(tomorrowDate, 'Europe/Paris', 'yyyy-MM-dd')
 
   // Round 1 — requêtes parallèles
-  const [usersRes, picksRes, matchesRes, terminatedMatchesRes, meRes] = await Promise.all([
+  const [usersRes, picksRes, matchesRes, terminatedMatchesRes, meRes, enCoursMatchRes] = await Promise.all([
     supabase
       .from('cdm_users')
       .select('id, auth_id, username, photo_url, total_points')
@@ -134,6 +134,19 @@ export default async function HomePage() {
           .eq('auth_id', user.id)
           .single()
       : Promise.resolve({ data: null, error: null }),
+
+    // Match actuellement en cours (le plus récent si plusieurs)
+    supabase
+      .from('cdm_matches')
+      .select(`
+        id, kickoff_at, status, score_a, score_b, phase,
+        nation_a:cdm_nations!nation_a_id(name, code),
+        nation_b:cdm_nations!nation_b_id(name, code)
+      `)
+      .eq('status', 'en_cours')
+      .order('kickoff_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const me = meRes.data
@@ -141,14 +154,15 @@ export default async function HomePage() {
   const upcomingMatches: Match[] = (matchesRes.data ?? []) as unknown as Match[]
   const terminatedMatches: Match[] = (terminatedMatchesRes.data ?? []) as unknown as Match[]
   const terminatedMatchIds = terminatedMatches.map(m => m.id)
+  const enCoursMatch = enCoursMatchRes.data as Match | null
 
   console.log('[page] cdmUsers count:', usersRes.data?.length, '| error:', usersRes.error?.message)
   console.log('[page] cdmUser:', me?.username, '| is_admin:', (me as Record<string, unknown>)?.is_admin)
   console.log('[page] prochains matchs:', matchesRes.data?.length, matchesRes.error?.message)
   console.log('[page] matchs terminés:', terminatedMatchesRes.data?.length)
 
-  // Round 2 — picks user + picks/ratings des matchs terminés
-  const [userPicksRes, matchPicksRes, matchRatingsRes] = await Promise.all([
+  // Round 2 — picks user + picks/ratings des matchs terminés + picks match en cours
+  const [userPicksRes, matchPicksRes, matchRatingsRes, enCoursPicksRes] = await Promise.all([
     me
       ? supabase
           .from('cdm_picks')
@@ -178,6 +192,23 @@ export default async function HomePage() {
           .select('player_id, match_id, fotmob_rating, goals, assists, penalty_saved')
           .in('match_id', terminatedMatchIds)
       : Promise.resolve({ data: [] }),
+
+    // Picks de tous pour le match en cours — seulement si status='en_cours' (gate équité)
+    enCoursMatch
+      ? supabaseAdmin
+          .from('cdm_picks')
+          .select(`
+            id, match_id, points_finaux, bonus_type, bonus_player_id,
+            bonus_player:cdm_players!bonus_player_id(id, name, position),
+            player_a1:cdm_players!player_a1_id(id, name, position),
+            player_a2:cdm_players!player_a2_id(id, name, position),
+            player_b1:cdm_players!player_b1_id(id, name, position),
+            player_b2:cdm_players!player_b2_id(id, name, position),
+            user:cdm_users!user_id(id, username, photo_url)
+          `)
+          .eq('match_id', enCoursMatch.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] }),
   ])
 
   // Picks de l'utilisateur connecté
@@ -206,6 +237,8 @@ export default async function HomePage() {
   for (const r of allRatings) {
     ratingsMap[`${r.match_id}:${r.player_id}`] = r
   }
+
+  const enCoursPicks = (enCoursPicksRes.data ?? []) as unknown as MatchPick[]
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -306,6 +339,58 @@ export default async function HomePage() {
             )}
           </div>
         </section>
+
+        {/* ── Match en cours ── */}
+        {enCoursMatch && (
+          <section>
+            <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+              Match en cours
+            </h2>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+
+              {/* En-tête du match */}
+              <Link href={`/match/${enCoursMatch.id}`} className="flex items-center gap-3 px-4 pt-3.5 pb-3 hover:bg-zinc-800/30 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-lg leading-none">{iso(enCoursMatch.nation_a?.code ?? '')}</span>
+                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{enCoursMatch.nation_a?.name}</span>
+                    <span className="text-sm font-bold text-zinc-300 tabular-nums px-1">
+                      {enCoursMatch.score_a ?? '?'} - {enCoursMatch.score_b ?? '?'}
+                    </span>
+                    <span className="text-sm font-semibold text-zinc-200 truncate max-w-[72px]">{enCoursMatch.nation_b?.name}</span>
+                    <span className="text-lg leading-none">{iso(enCoursMatch.nation_b?.code ?? '')}</span>
+                  </div>
+                  {enCoursMatch.phase && (
+                    <p className="text-[10px] text-zinc-600 mt-0.5">{enCoursMatch.phase}</p>
+                  )}
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-green-950/50 text-green-400 border border-green-800/40 flex-shrink-0">
+                  🔴 En cours
+                </span>
+              </Link>
+
+              {/* Picks de tous les participants */}
+              {enCoursPicks.length === 0 ? (
+                <div className="border-t border-zinc-800/60 px-4 py-4 text-center">
+                  <p className="text-xs text-zinc-500">Aucun pick pour ce match</p>
+                </div>
+              ) : (
+                <div className="border-t border-zinc-800/60 px-4 py-3 space-y-2.5">
+                  {enCoursPicks.map((pick, i) => (
+                    <MatchPickRow
+                      key={pick.id}
+                      pick={pick}
+                      rank={i + 1}
+                      matchId={enCoursMatch.id}
+                      ratingsMap={ratingsMap}
+                      cdmUserId={me?.id ?? null}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ── Prochains matchs ── */}
         <section>
