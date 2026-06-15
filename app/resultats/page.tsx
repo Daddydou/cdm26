@@ -22,7 +22,9 @@ type MatchPick = {
   id: string
   match_id: string
   points_finaux: number | null
+  bonus_type: string | null
   bonus_player_id: string | null
+  bonus_player: { id: string; name: string; position: string } | null
   player_a1: { id: string; name: string; position: string } | null
   player_a2: { id: string; name: string; position: string } | null
   player_b1: { id: string; name: string; position: string } | null
@@ -96,7 +98,8 @@ export default async function ResultatsPage() {
       ? supabaseAdmin
           .from('cdm_picks')
           .select(`
-            id, match_id, points_finaux, bonus_player_id,
+            id, match_id, points_finaux, bonus_type, bonus_player_id,
+            bonus_player:cdm_players!bonus_player_id(id, name, position),
             player_a1:cdm_players!player_a1_id(id, name, position),
             player_a2:cdm_players!player_a2_id(id, name, position),
             player_b1:cdm_players!player_b1_id(id, name, position),
@@ -190,6 +193,27 @@ export default async function ResultatsPage() {
                       const players = [pick.player_a1, pick.player_a2, pick.player_b1, pick.player_b2]
                         .filter(Boolean) as NonNullable<MatchPick['player_a1']>[]
 
+                      const totalGoals   = players.reduce((s, p) => s + (ratingsMap[`${match.id}:${p.id}`]?.goals   ?? 0), 0)
+                      const totalAssists = players.reduce((s, p) => s + (ratingsMap[`${match.id}:${p.id}`]?.assists ?? 0), 0)
+                      const hasPenSave   = players.some(p => (ratingsMap[`${match.id}:${p.id}`]?.penalty_saved ?? 0) > 0)
+                      const bonusPlayer  = pick.bonus_player
+                      const bonusPlayerR = bonusPlayer ? ratingsMap[`${match.id}:${bonusPlayer.id}`] : undefined
+                      const bonusRating  = bonusPlayerR?.fotmob_rating ?? 0
+                      const bonusLabel   = (() => {
+                        switch (pick.bonus_type) {
+                          case 'sniper':          return `🎯 Sniper +${totalGoals * 3}`
+                          case 'passeur_genie':   return `🎪 Passeur de Génie +${totalAssists * 3}`
+                          case 'troisieme_homme': return `👤 3e Homme +${bonusRating}`
+                          case 'mur':             return hasPenSave ? '🧱 Mur +8' : '🧱 Mur +0'
+                          case 'double_mise':     return '⚡ Double Mise ×2'
+                          case 'bouclier':        return '🛡️ Bouclier'
+                          case 'joueur_x2':       return '⭐ Joueur ×2'
+                          case 'espion':          return '🕵️ Espion'
+                          case 'all_in':          return '🎲 All-In'
+                          default: return null
+                        }
+                      })()
+
                       return (
                         <div key={pick.id} className="flex items-start gap-2">
                           {/* Rang */}
@@ -219,33 +243,54 @@ export default async function ResultatsPage() {
                             </div>
 
                             {/* Joueurs pickés avec notes */}
-                            <div className="flex flex-wrap gap-1">
-                              {players.map(p => {
-                                const rKey = `${match.id}:${p.id}`
-                                const r = ratingsMap[rKey]
-                                const isStar = p.id === pick.bonus_player_id
-                                return (
-                                  <span
-                                    key={p.id}
-                                    className={[
-                                      'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border',
-                                      isStar
-                                        ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
-                                        : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
-                                    ].join(' ')}
-                                  >
-                                    {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-                                    <span>{p.name}</span>
-                                    {r?.fotmob_rating != null
-                                      ? <span className={`font-bold tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap gap-1">
+                                {players.map(p => {
+                                  const rKey = `${match.id}:${p.id}`
+                                  const r = ratingsMap[rKey]
+                                  const isStar = p.id === pick.bonus_player_id && pick.bonus_type === 'joueur_x2'
+                                  return (
+                                    <span
+                                      key={p.id}
+                                      className={[
+                                        'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border',
+                                        isStar
+                                          ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
+                                          : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
+                                      ].join(' ')}
+                                    >
+                                      {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
+                                      <span>{p.name}</span>
+                                      {r?.fotmob_rating != null
+                                        ? <span className={`font-bold tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
+                                        : <span className="text-zinc-600">–</span>
+                                      }
+                                      {(r?.goals ?? 0) > 0 && <span>{'⚽'.repeat(r!.goals!)}</span>}
+                                      {(r?.assists ?? 0) > 0 && <span>{'🅰️'.repeat(r!.assists!)}</span>}
+                                      {(r?.penalty_saved ?? 0) > 0 && <span>🧤</span>}
+                                    </span>
+                                  )
+                                })}
+                                {pick.bonus_type === 'troisieme_homme' && bonusPlayer && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border bg-violet-950/40 border-violet-800/40 text-violet-200">
+                                    <span className="text-[9px] text-violet-400 font-bold">3e</span>
+                                    <span>{bonusPlayer.name}</span>
+                                    {bonusPlayerR?.fotmob_rating != null
+                                      ? <span className={`font-bold tabular-nums ${bonusPlayerR.fotmob_rating >= 7 ? 'text-green-400' : bonusPlayerR.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{bonusPlayerR.fotmob_rating}</span>
                                       : <span className="text-zinc-600">–</span>
                                     }
-                                    {(r?.goals ?? 0) > 0 && <span>{'⚽'.repeat(r!.goals!)}</span>}
-                                    {(r?.assists ?? 0) > 0 && <span>{'🅰️'.repeat(r!.assists!)}</span>}
-                                    {(r?.penalty_saved ?? 0) > 0 && <span>🧤</span>}
+                                    {(bonusPlayerR?.goals ?? 0) > 0 && <span>{'⚽'.repeat(bonusPlayerR!.goals!)}</span>}
+                                    {(bonusPlayerR?.assists ?? 0) > 0 && <span>{'🅰️'.repeat(bonusPlayerR!.assists!)}</span>}
                                   </span>
-                                )
-                              })}
+                                )}
+                              </div>
+                              {bonusLabel && (
+                                <div>
+                                  <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded bg-violet-950/30 border border-violet-800/30 text-violet-300 font-semibold">
+                                    {bonusLabel}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

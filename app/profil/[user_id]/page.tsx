@@ -15,16 +15,6 @@ function isoFlag(code: string) {
   )
 }
 
-const BONUS_META: Record<string, { icon: string; name: string }> = {
-  double_mise:     { icon: '⚡', name: 'Double Mise' },
-  troisieme_homme: { icon: '👤', name: 'Troisième Homme' },
-  bouclier:        { icon: '🛡️', name: 'Bouclier' },
-  sniper:          { icon: '🎯', name: 'Sniper' },
-  passeur_genie:   { icon: '🎪', name: 'Passeur de Génie' },
-  mur:             { icon: '🧱', name: 'Mur' },
-  espion:          { icon: '🕵️', name: 'Espion' },
-  all_in:          { icon: '🎲', name: 'All-In' },
-}
 
 const POS: Record<string, string> = { GK: 'G', DEF: 'D', MID: 'M', FWD: 'A' }
 const POS_ORDER: Record<string, number> = { GK: 0, DEF: 1, MID: 2, FWD: 3 }
@@ -139,8 +129,11 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   // Notes FotMob — une seule requête croisée match×joueur
   const matchIds    = [...new Set(picks.map(p => p.match?.id).filter(Boolean) as string[])]
   const allPlayerIds = [...new Set(
-    picks.flatMap(p => [p.player_a1?.id, p.player_a2?.id, p.player_b1?.id, p.player_b2?.id])
-      .filter(Boolean) as string[]
+    picks.flatMap(p => {
+      const ids = [p.player_a1?.id, p.player_a2?.id, p.player_b1?.id, p.player_b2?.id]
+      if (p.bonus_type === 'troisieme_homme' && p.bonus_player?.id) ids.push(p.bonus_player.id)
+      return ids
+    }).filter(Boolean) as string[]
   )]
 
   const { data: ratingsData } = matchIds.length > 0 && allPlayerIds.length > 0
@@ -244,7 +237,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                 const isOngoing  = m.status === 'en_cours'
                 const multiplier = m.points_multiplier ?? 1
                 const pts        = pick.points_finaux
-                const bonus      = pick.bonus_type ? BONUS_META[pick.bonus_type] : null
+
 
                 const players = [
                   { id: pick.player_a1?.id ?? null, info: pick.player_a1 },
@@ -252,6 +245,27 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                   { id: pick.player_b1?.id ?? null, info: pick.player_b1 },
                   { id: pick.player_b2?.id ?? null, info: pick.player_b2 },
                 ].filter(p => p.info != null)
+
+                const totalGoals   = players.reduce((s, { id }) => s + (id ? (ratingsMap[`${m.id}:${id}`]?.goals   ?? 0) : 0), 0)
+                const totalAssists = players.reduce((s, { id }) => s + (id ? (ratingsMap[`${m.id}:${id}`]?.assists ?? 0) : 0), 0)
+                const hasPenSave   = players.some(({ id }) => id && (ratingsMap[`${m.id}:${id}`]?.penalty_saved ?? 0) > 0)
+                const bonusPlayer  = pick.bonus_player
+                const bonusPlayerR = bonusPlayer ? ratingsMap[`${m.id}:${bonusPlayer.id}`] : undefined
+                const bonusRating  = bonusPlayerR?.fotmob_rating ?? 0
+                const bonusLabel   = (() => {
+                  switch (pick.bonus_type) {
+                    case 'sniper':          return `🎯 Sniper +${totalGoals * 3}`
+                    case 'passeur_genie':   return `🎪 Passeur de Génie +${totalAssists * 3}`
+                    case 'troisieme_homme': return `👤 3e Homme +${bonusRating}`
+                    case 'mur':             return hasPenSave ? '🧱 Mur +8' : '🧱 Mur +0'
+                    case 'double_mise':     return '⚡ Double Mise ×2'
+                    case 'bouclier':        return '🛡️ Bouclier'
+                    case 'joueur_x2':       return '⭐ Joueur ×2'
+                    case 'espion':          return '🕵️ Espion'
+                    case 'all_in':          return '🎲 All-In'
+                    default: return null
+                  }
+                })()
 
                 return (
                   <div key={pick.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
@@ -296,47 +310,60 @@ export default async function ProfilPage({ params }: { params: { user_id: string
 
                     {/* Joueurs + bonus */}
                     <div className="px-4 pb-3.5 space-y-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        {players.map(({ id, info }) => {
-                          if (!info) return null
-                          const rKey   = `${m.id}:${id}`
-                          const r      = isFinished ? ratingsMap[rKey] : undefined
-                          const isStar = !!id && id === pick.bonus_player_id
-                          const rating = r?.fotmob_rating
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap gap-1.5">
+                          {players.map(({ id, info }) => {
+                            if (!info) return null
+                            const rKey   = `${m.id}:${id}`
+                            const r      = isFinished ? ratingsMap[rKey] : undefined
+                            const isStar = !!id && id === pick.bonus_player_id && pick.bonus_type === 'joueur_x2'
+                            const rating = r?.fotmob_rating
 
-                          return (
-                            <span
-                              key={id ?? info.name}
-                              className={[
-                                'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
-                                isStar
-                                  ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
-                                  : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
-                              ].join(' ')}
-                            >
-                              {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-                              <span className="text-[10px] text-zinc-600">{POS[info.position] ?? info.position}</span>
-                              <span>{info.name}</span>
-                              {isFinished && (
-                                rating != null
-                                  ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
-                                  : <span className="text-zinc-600 text-[10px]">–</span>
-                              )}
-                              {(r?.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(r!.goals!)}</span>}
-                              {(r?.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(r!.assists!)}</span>}
-                              {(r?.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
+                            return (
+                              <span
+                                key={id ?? info.name}
+                                className={[
+                                  'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
+                                  isStar
+                                    ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
+                                    : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
+                                ].join(' ')}
+                              >
+                                {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
+                                <span className="text-[10px] text-zinc-600">{POS[info.position] ?? info.position}</span>
+                                <span>{info.name}</span>
+                                {isFinished && (
+                                  rating != null
+                                    ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
+                                    : <span className="text-zinc-600 text-[10px]">–</span>
+                                )}
+                                {(r?.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(r!.goals!)}</span>}
+                                {(r?.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(r!.assists!)}</span>}
+                                {(r?.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
+                              </span>
+                            )
+                          })}
+                          {pick.bonus_type === 'troisieme_homme' && bonusPlayer && isFinished && (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border bg-violet-950/40 border-violet-800/40 text-violet-200">
+                              <span className="text-[9px] text-violet-400 font-bold">3e</span>
+                              <span>{bonusPlayer.name}</span>
+                              {bonusPlayerR?.fotmob_rating != null
+                                ? <span className={`font-bold text-[10px] tabular-nums ${bonusPlayerR.fotmob_rating >= 7 ? 'text-green-400' : bonusPlayerR.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{bonusPlayerR.fotmob_rating}</span>
+                                : <span className="text-zinc-600 text-[10px]">–</span>
+                              }
+                              {bonusPlayerR && (bonusPlayerR.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(bonusPlayerR.goals!)}</span>}
+                              {bonusPlayerR && (bonusPlayerR.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(bonusPlayerR.assists!)}</span>}
                             </span>
-                          )
-                        })}
-                      </div>
-
-                      {bonus && (
-                        <div>
-                          <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
-                            {bonus.icon} {bonus.name}
-                          </span>
+                          )}
                         </div>
-                      )}
+                        {bonusLabel && (
+                          <div>
+                            <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
+                              {bonusLabel}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {pts != null && (

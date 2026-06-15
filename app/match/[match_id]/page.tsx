@@ -39,6 +39,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
         id, points_finaux, bonus_type, bonus_player_id,
         player_a1_id, player_a2_id, player_b1_id, player_b2_id,
         user:cdm_users!user_id ( id, auth_id, username, photo_url ),
+        bonus_player:cdm_players!bonus_player_id ( id, name, position ),
         player_a1:cdm_players!player_a1_id ( name, position ),
         player_a2:cdm_players!player_a2_id ( name, position ),
         player_b1:cdm_players!player_b1_id ( name, position ),
@@ -56,9 +57,11 @@ export default async function MatchPage({ params }: { params: { match_id: string
   const nationB  = match.nation_b as unknown as { name: string; code: string } | null
 
   const playerIds = [...new Set(
-    picks.flatMap(p =>
-      [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id].filter(Boolean) as string[]
-    )
+    picks.flatMap(p => {
+      const ids = [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id].filter(Boolean) as string[]
+      if (p.bonus_type === 'troisieme_homme' && p.bonus_player_id) ids.push(p.bonus_player_id)
+      return ids
+    })
   )]
 
   const { data: ratingsData } = playerIds.length > 0

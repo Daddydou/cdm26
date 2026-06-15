@@ -25,6 +25,7 @@ export type PickRow = {
   player_a2_id: string | null
   player_b1_id: string | null
   player_b2_id: string | null
+  bonus_player: { id: string; name: string; position: string } | null
   player_a1: { name: string; position: string } | null
   player_a2: { name: string; position: string } | null
   player_b1: { name: string; position: string } | null
@@ -91,13 +92,33 @@ function PickCard({
   effectivePoints: number | null
 }) {
   const u = pick.user
-  const bonus = pick.bonus_type ? BONUS_META[pick.bonus_type] : null
   const players = [
     { id: pick.player_a1_id, info: pick.player_a1 },
     { id: pick.player_a2_id, info: pick.player_a2 },
     { id: pick.player_b1_id, info: pick.player_b1 },
     { id: pick.player_b2_id, info: pick.player_b2 },
   ]
+
+  const totalGoals    = players.reduce((s, { id }) => s + (id ? (ratingsMap[id]?.goals   ?? 0) : 0), 0)
+  const totalAssists  = players.reduce((s, { id }) => s + (id ? (ratingsMap[id]?.assists ?? 0) : 0), 0)
+  const hasPenSave    = players.some(({ id }) => id && (ratingsMap[id]?.penalty_saved ?? 0) > 0)
+  const bonusPlayer   = pick.bonus_player
+  const bonusPlayerR  = bonusPlayer ? ratingsMap[bonusPlayer.id] : undefined
+  const bonusRating   = bonusPlayerR?.fotmob_rating ?? 0
+  const bonusLabel    = (() => {
+    switch (pick.bonus_type) {
+      case 'sniper':          return `🎯 Sniper +${totalGoals * 3}`
+      case 'passeur_genie':   return `🎪 Passeur de Génie +${totalAssists * 3}`
+      case 'troisieme_homme': return `👤 3e Homme +${bonusRating}`
+      case 'mur':             return hasPenSave ? '🧱 Mur +8' : '🧱 Mur +0'
+      case 'double_mise':     return '⚡ Double Mise ×2'
+      case 'bouclier':        return '🛡️ Bouclier'
+      case 'joueur_x2':       return '⭐ Joueur ×2'
+      case 'espion':          return '🕵️ Espion'
+      case 'all_in':          return '🎲 All-In'
+      default: return null
+    }
+  })()
 
   return (
     <div className={[
@@ -130,39 +151,51 @@ function PickCard({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 pl-[47px]">
-        {players.map(({ id, info }) => {
-          if (!info) return null
-          const r = id ? ratingsMap[id] : undefined
-          const isStar = !!id && id === pick.bonus_player_id
-          return (
-            <span key={id ?? info.name} className={[
-              'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
-              isStar
-                ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
-                : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
-            ].join(' ')}>
-              {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
-              <span>{info.name}</span>
-              {r?.fotmob_rating != null
-                ? <span className={`font-bold text-[10px] tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
+      <div className="space-y-1.5 pl-[47px]">
+        <div className="flex flex-wrap gap-1.5">
+          {players.map(({ id, info }) => {
+            if (!info) return null
+            const r = id ? ratingsMap[id] : undefined
+            const isStar = !!id && id === pick.bonus_player_id && pick.bonus_type === 'joueur_x2'
+            return (
+              <span key={id ?? info.name} className={[
+                'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
+                isStar
+                  ? 'bg-yellow-950/40 border-yellow-800/40 text-yellow-200'
+                  : 'bg-zinc-800/60 border-zinc-700/40 text-zinc-300',
+              ].join(' ')}>
+                {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
+                <span>{info.name}</span>
+                {r?.fotmob_rating != null
+                  ? <span className={`font-bold text-[10px] tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
+                  : <span className="text-zinc-600 text-[10px]">–</span>
+                }
+                {r && (r.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(r.goals!)}</span>}
+                {r && (r.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(r.assists!)}</span>}
+                {r && (r.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
+              </span>
+            )
+          })}
+          {pick.bonus_type === 'troisieme_homme' && bonusPlayer && (
+            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border bg-violet-950/40 border-violet-800/40 text-violet-200">
+              <span className="text-[9px] text-violet-400 font-bold">3e</span>
+              <span>{bonusPlayer.name}</span>
+              {bonusPlayerR?.fotmob_rating != null
+                ? <span className={`font-bold text-[10px] tabular-nums ${bonusPlayerR.fotmob_rating >= 7 ? 'text-green-400' : bonusPlayerR.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{bonusPlayerR.fotmob_rating}</span>
                 : <span className="text-zinc-600 text-[10px]">–</span>
               }
-              {r && (r.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(r.goals!)}</span>}
-              {r && (r.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(r.assists!)}</span>}
-              {r && (r.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
+              {bonusPlayerR && (bonusPlayerR.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(bonusPlayerR.goals!)}</span>}
+              {bonusPlayerR && (bonusPlayerR.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(bonusPlayerR.assists!)}</span>}
             </span>
-          )
-        })}
-      </div>
-
-      {bonus && (
-        <div className="pl-[47px]">
-          <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
-            {bonus.icon} {bonus.name}
-          </span>
+          )}
         </div>
-      )}
+
+        {bonusLabel && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
+            {bonusLabel}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
