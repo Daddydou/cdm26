@@ -240,8 +240,8 @@ export default async function ResultatsPage() {
                                       ? <span className={`font-bold tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
                                       : <span className="text-zinc-600">–</span>
                                     }
-                                    {(r?.goals ?? 0) > 0 && <span>⚽</span>}
-                                    {(r?.assists ?? 0) > 0 && <span>🅰️</span>}
+                                    {(r?.goals ?? 0) > 0 && <span>{'⚽'.repeat(r!.goals!)}</span>}
+                                    {(r?.assists ?? 0) > 0 && <span>{'🅰️'.repeat(r!.assists!)}</span>}
                                     {(r?.penalty_saved ?? 0) > 0 && <span>🧤</span>}
                                   </span>
                                 )

@@ -148,8 +148,8 @@ function PickCard({
                 ? <span className={`font-bold text-[10px] tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
                 : <span className="text-zinc-600 text-[10px]">–</span>
               }
-              {r && (r.goals ?? 0) > 0 && <span className="text-[10px]">⚽</span>}
-              {r && (r.assists ?? 0) > 0 && <span className="text-[10px]">🅰️</span>}
+              {r && (r.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(r.goals!)}</span>}
+              {r && (r.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(r.assists!)}</span>}
               {r && (r.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
             </span>
           )

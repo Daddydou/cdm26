@@ -322,8 +322,8 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                                   ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
                                   : <span className="text-zinc-600 text-[10px]">–</span>
                               )}
-                              {(r?.goals ?? 0) > 0 && <span className="text-[10px]">⚽</span>}
-                              {(r?.assists ?? 0) > 0 && <span className="text-[10px]">🅰️</span>}
+                              {(r?.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(r!.goals!)}</span>}
+                              {(r?.assists ?? 0) > 0 && <span className="text-[10px]">{'🅰️'.repeat(r!.assists!)}</span>}
                               {(r?.penalty_saved ?? 0) > 0 && <span className="text-[10px]">🧤</span>}
                             </span>
                           )
