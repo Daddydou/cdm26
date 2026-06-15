@@ -148,32 +148,77 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
 
-  const { data: dbMatchesRaw } = await admin
-    .from('cdm_matches')
-    .select('id, nation_a:cdm_nations!nation_a_id(id, name), nation_b:cdm_nations!nation_b_id(id, name)')
-    .eq('status', 'termine')
-
-  const dbMatches = (dbMatchesRaw ?? []) as unknown as DbMatch[]
+  // Precharge toutes les nations pour résolution home/away → nation_id en JS
+  const { data: nationsRaw } = await admin.from('cdm_nations').select('id, name')
+  const allNations = (nationsRaw ?? []) as Array<{ id: string; name: string }>
 
   let totalMatched     = 0
-  const allUnmatched:   string[] = []
+  const allUnmatched:  string[] = []
   let matchesProcessed = 0
 
-  function findDbMatch(home: string, away: string): DbMatch | undefined {
-    const nh = normalizeTeam(mapTeam(home))
-    const na = normalizeTeam(mapTeam(away))
-    const found = dbMatches.find(m => {
-      const mna = normalizeTeam(m.nation_a?.name ?? '')
-      const mnb = normalizeTeam(m.nation_b?.name ?? '')
-      return (nh === mna && na === mnb) || (nh === mnb && na === mna)
-    })
-    if (!found) {
-      const candidates = dbMatches
-        .map(m => `${normalizeTeam(m.nation_a?.name ?? '')} vs ${normalizeTeam(m.nation_b?.name ?? '')}`)
-        .join(' | ')
-      console.warn(`[import-ratings] match non trouvé — reçu: "${nh}" vs "${na}" | candidats: ${candidates}`)
+  type DbMatchFull = DbMatch & { kickoff_at: string | null }
+
+  // Résout home + away → nation_ids, cherche le(s) match(s) dans les deux sens,
+  // gère les doublons en choisissant le match avec le plus de picks.
+  async function resolveMatch(home: string, away: string): Promise<DbMatch | null> {
+    const normHome = normalizeTeam(mapTeam(home))
+    const normAway = normalizeTeam(mapTeam(away))
+
+    const natHome = allNations.find(n => normalizeTeam(n.name) === normHome)
+    const natAway = allNations.find(n => normalizeTeam(n.name) === normAway)
+
+    if (!natHome) {
+      const msg = `Nation introuvable : "${home}" (normalisé : "${normHome}")`
+      allUnmatched.push(msg)
+      console.warn('[import-ratings]', msg)
+      return null
     }
-    return found
+    if (!natAway) {
+      const msg = `Nation introuvable : "${away}" (normalisé : "${normAway}")`
+      allUnmatched.push(msg)
+      console.warn('[import-ratings]', msg)
+      return null
+    }
+
+    const SEL = 'id, kickoff_at, nation_a:cdm_nations!nation_a_id(id, name), nation_b:cdm_nations!nation_b_id(id, name)'
+    const [r1, r2] = await Promise.all([
+      admin.from('cdm_matches').select(SEL).eq('nation_a_id', natHome.id).eq('nation_b_id', natAway.id),
+      admin.from('cdm_matches').select(SEL).eq('nation_a_id', natAway.id).eq('nation_b_id', natHome.id),
+    ])
+    const candidates = [...(r1.data ?? []), ...(r2.data ?? [])] as unknown as DbMatchFull[]
+
+    if (candidates.length === 0) {
+      const msg = `Match non trouvé : "${home}" vs "${away}"`
+      allUnmatched.push(msg)
+      console.warn(`[import-ratings] ${msg} — nations ${natHome.id} vs ${natAway.id}`)
+      return null
+    }
+    if (candidates.length === 1) return candidates[0]
+
+    // Doublons : choisit le match avec le plus de picks ; en cas d'égalité, le
+    // plus proche de la date envoyée.
+    const withCounts = await Promise.all(
+      candidates.map(async c => {
+        const { count } = await admin
+          .from('cdm_picks')
+          .select('id', { count: 'exact', head: true })
+          .eq('match_id', c.id)
+        return { match: c, picks: count ?? 0 }
+      })
+    )
+    withCounts.sort((a, b) => {
+      if (b.picks !== a.picks) return b.picks - a.picks
+      const distA = Math.abs(new Date(a.match.kickoff_at ?? date).getTime() - new Date(date).getTime())
+      const distB = Math.abs(new Date(b.match.kickoff_at ?? date).getTime() - new Date(date).getTime())
+      return distA - distB
+    })
+    const [chosen, ...rest] = withCounts
+    console.warn(
+      `[import-ratings] ${candidates.length} candidats "${normHome}" vs "${normAway}" — ` +
+      `choisi ${chosen.match.id} (${chosen.picks} picks), ` +
+      `ignorés : ${rest.map(x => `${x.match.id} (${x.picks} picks)`).join(', ')}`
+    )
+    return chosen.match
   }
 
   async function upsertPlayers(dbMatch: DbMatch, players: PlayerInput[], source: string) {
@@ -243,13 +288,10 @@ export async function POST(request: Request) {
         if (data) dbMatch = data as unknown as DbMatch
       }
 
-      // Fallback : résolution par home + away normalisés
-      if (!dbMatch) dbMatch = findDbMatch(m.home, m.away)
+      // Fallback : résolution par home + away → nation_ids
+      if (!dbMatch) dbMatch = await resolveMatch(m.home, m.away) ?? undefined
 
-      if (!dbMatch) {
-        allUnmatched.push(`Match non trouvé : ${m.home} vs ${m.away}`)
-        continue
-      }
+      if (!dbMatch) continue
       const upserted = await upsertPlayers(dbMatch, m.players, 'flashscore')
       if (upserted) {
         const calc = await computeMatchPoints(dbMatch.id)
@@ -305,7 +347,7 @@ export async function POST(request: Request) {
     const homeTeam = (event.homeTeam as Record<string, unknown>)?.name as string ?? '?'
     const awayTeam = (event.awayTeam as Record<string, unknown>)?.name as string ?? '?'
 
-    const dbMatch = findDbMatch(homeTeam, awayTeam)
+    const dbMatch = await resolveMatch(homeTeam, awayTeam)
     if (!dbMatch) continue
 
     const lineupsRes = await sofaFetch(
