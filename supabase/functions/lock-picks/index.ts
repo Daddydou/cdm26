@@ -19,10 +19,6 @@ Deno.serve(async () => {
     return Response.json({ error: matchesError.message }, { status: 500 })
   }
 
-  if (!matches || matches.length === 0) {
-    return Response.json({ locked: 0, matches: [] })
-  }
-
   const results: { match_id: string; label: string; picks_locked: number }[] = []
 
   for (const match of matches) {
