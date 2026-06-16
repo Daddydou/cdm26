@@ -58,9 +58,24 @@ Deno.serve(async () => {
     results.push({ match_id: match.id, label: `${na} vs ${nb}`, picks_locked })
   }
 
+  // Filet de sécurité : matchs en_cours depuis >3h → termine
+  const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+  const { data: terminated, error: terminateError } = await supabase
+    .from('cdm_matches')
+    .update({ status: 'termine' })
+    .eq('status', 'en_cours')
+    .lte('kickoff_at', threeHoursAgo)
+    .select('id')
+  if (terminateError) {
+    console.error('[lock-picks] Erreur terminate:', terminateError.message)
+  } else {
+    console.log(`[lock-picks] Terminé auto (+3h): ${terminated?.length ?? 0} match(s)`)
+  }
+
   return Response.json({
-    locked:  results.length,
-    matches: results,
-    at:      now,
+    locked:     results.length,
+    matches:    results,
+    terminated: terminated?.length ?? 0,
+    at:         now,
   })
 })

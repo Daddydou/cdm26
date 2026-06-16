@@ -266,7 +266,25 @@ export async function POST(request: Request) {
       const { error: upsertErr } = await admin
         .from('cdm_player_ratings')
         .upsert(deduped, { onConflict: 'player_id,match_id' })
-      if (!upsertErr) upserted = true
+      if (!upsertErr) {
+        upserted = true
+        // Si les deux nations ont au moins un joueur noté → match terminé
+        const nationAIds = dbPl.filter(p => p.nation_id === dbMatch.nation_a?.id).map(p => p.id)
+        const nationBIds = dbPl.filter(p => p.nation_id === dbMatch.nation_b?.id).map(p => p.id)
+        if (nationAIds.length > 0 && nationBIds.length > 0) {
+          const [{ count: cA }, { count: cB }] = await Promise.all([
+            admin.from('cdm_player_ratings').select('player_id', { count: 'exact', head: true })
+              .eq('match_id', dbMatch.id).in('player_id', nationAIds),
+            admin.from('cdm_player_ratings').select('player_id', { count: 'exact', head: true })
+              .eq('match_id', dbMatch.id).in('player_id', nationBIds),
+          ])
+          if ((cA ?? 0) > 0 && (cB ?? 0) > 0) {
+            await admin.from('cdm_matches').update({ status: 'termine' })
+              .eq('id', dbMatch.id).neq('status', 'termine')
+            console.log('[import-ratings] Match terminé automatiquement:', dbMatch.id)
+          }
+        }
+      }
     }
     matchesProcessed++
     return upserted
