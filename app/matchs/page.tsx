@@ -35,7 +35,7 @@ export default async function MatchsPage() {
     .select('id')
     .in('name', ['Mexique', 'Brésil', 'Maroc', 'États-Unis', 'Allemagne', 'Pays-Bas',
                   'Suède', 'Belgique', 'Espagne', 'France', 'Argentine', 'Portugal',
-                  'Angleterre', 'Croatie'])
+                  'Angleterre', 'Croatie', 'République Tchèque', 'Afrique du Sud'])
 
   const featuredIds  = featuredNations?.map(n => n.id) ?? []
   const nationFilter = featuredIds.length > 0
