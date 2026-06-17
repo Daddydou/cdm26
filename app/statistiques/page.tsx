@@ -79,12 +79,12 @@ export default async function StatistiquesPage() {
       .order('total_points', { ascending: false, nullsFirst: false }),
   ])
 
-  const matches = (matchesRes.data ?? []) as unknown as Match[]
+  const allMatches = (matchesRes.data ?? []) as unknown as Match[]
   const users: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
-  const matchIds = matches.map(m => m.id)
+  const allMatchIds = allMatches.map(m => m.id)
 
   const [picksRes, ratingsRes] = await Promise.all([
-    matchIds.length > 0
+    allMatchIds.length > 0
       ? supabaseAdmin
           .from('cdm_picks')
           .select(`
@@ -95,19 +95,24 @@ export default async function StatistiquesPage() {
             player_b1:cdm_players!player_b1_id(id, position),
             player_b2:cdm_players!player_b2_id(id, position)
           `)
-          .in('match_id', matchIds)
+          .in('match_id', allMatchIds)
       : Promise.resolve({ data: [] }),
 
-    matchIds.length > 0
+    allMatchIds.length > 0
       ? supabaseAdmin
           .from('cdm_player_ratings')
           .select('player_id, match_id, fotmob_rating')
-          .in('match_id', matchIds)
+          .in('match_id', allMatchIds)
       : Promise.resolve({ data: [] }),
   ])
 
   const extPicks = (picksRes.data ?? []) as unknown as ExtPick[]
   const ratings  = (ratingsRes.data ?? []) as unknown as RatingRow[]
+
+  // Restreindre aux matchs ayant au moins un pick (exclure les matchs fantômes)
+  const pickedMatchIds = new Set(extPicks.map(p => p.match_id))
+  const matches = allMatches.filter(m => pickedMatchIds.has(m.id))
+  const matchIds = matches.map(m => m.id)
 
   // Ratings map : `matchId:playerId` → fotmob_rating (uniquement les notes > 0)
   const ratingsMap: Record<string, number> = {}
