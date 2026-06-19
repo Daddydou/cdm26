@@ -9,6 +9,7 @@ const TABS = [
   { href: '/',               label: 'Accueil',   icon: '🏠' },
   { href: '/matchs',         label: 'Matchs',    icon: '📅' },
   { href: '/resultats',      label: 'Résultats', icon: '🏆' },
+  { href: '/bracket',        label: 'Bracket',   icon: '⚡' },
   { href: '/statistiques',   label: 'Stats',     icon: '📊' },
 ] as const
 
