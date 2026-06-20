@@ -347,8 +347,10 @@ export default function BracketPage() {
     // 2. query cdm_users avec le même browser client → cdm_user.id
     // 3. fetch API pour les données bracket
     const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      console.log('[bracket] userId from getUser:', user?.id)
+    // getSession() = lecture locale des cookies, pas d'appel réseau (contrairement à getUser())
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const user = session?.user ?? null
+      console.log('[bracket] userId from getSession:', user?.id ?? null)
       let cdmUserData: CdmUser | null = null
       if (user?.id) {
         const { data } = await supabase

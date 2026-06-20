@@ -272,8 +272,11 @@ export default function PickClient({
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      console.log('[PickClient] userId from getUser:', user?.id)
+    // getSession() lit les cookies localement (sans appel réseau), contrairement à getUser()
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const user = session?.user ?? null
+      console.log('[picks] auth_id from getUser:', user?.id ?? null)
+      console.log('[picks] session présente:', !!session, '| provider:', session?.user?.app_metadata?.provider ?? null)
       if (!user?.id) return
       setUserId(user.id)
 
