@@ -342,31 +342,37 @@ export default function BracketPage() {
   console.log('[bracket] isLocked:', isLocked, '| cdmUser:', cdmUser?.id ?? null)
 
   useEffect(() => {
-    // Même pattern que PickClient : getUser() browser → envoyer auth_id au serveur
-    const sb = createClient()
-    sb.auth.getUser().then(({ data: { user } }) => {
-      console.log('[bracket] auth_id from getUser:', user?.id ?? null)
-      const url = user?.id
-        ? `/api/bracket/data?auth_id=${user.id}`
-        : '/api/bracket/data'
-      return fetch(url)
-    }).then(r => r.json())
-      .then(({ currentUser, matches: m, nations, users, predictions }) => {
-        if (currentUser) setCdmUser(currentUser)
-        setMatches(m ?? [])
-        setNationMap(new Map((nations ?? []).map((n: Nation) => [n.id, n])))
-        const cdmUsersList = (users ?? []) as CdmUser[]
-        setCdmUsers(cdmUsersList)
-        if (cdmUsersList.length) setSelectedUserId(cdmUsersList[0].id)
-        const grouped: Record<string, Record<number, string>> = {}
-        for (const p of (predictions ?? [])) {
-          if (!grouped[p.user_id]) grouped[p.user_id] = {}
-          grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
-        }
-        setAllPreds(grouped)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    // Exactement le même pattern que PickClient.tsx :
+    // 1. getUser() via browser client → auth_id
+    // 2. query cdm_users avec le même browser client → cdm_user.id
+    // 3. fetch API pour les données bracket
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      console.log('[bracket] userId from getUser:', user?.id)
+      if (user?.id) {
+        const { data: cdmUserData } = await supabase
+          .from('cdm_users')
+          .select('id, username, photo_url')
+          .eq('auth_id', user.id)
+          .maybeSingle()
+        console.log('[bracket] cdmUser:', cdmUserData?.id ?? null, cdmUserData?.username ?? null)
+        if (cdmUserData) setCdmUser(cdmUserData as CdmUser)
+      }
+
+      const { matches: m, nations, users, predictions } = await fetch('/api/bracket/data').then(r => r.json())
+      setMatches(m ?? [])
+      setNationMap(new Map((nations ?? []).map((n: Nation) => [n.id, n])))
+      const cdmUsersList = (users ?? []) as CdmUser[]
+      setCdmUsers(cdmUsersList)
+      if (cdmUsersList.length) setSelectedUserId(cdmUsersList[0].id)
+      const grouped: Record<string, Record<number, string>> = {}
+      for (const p of (predictions ?? [])) {
+        if (!grouped[p.user_id]) grouped[p.user_id] = {}
+        grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
+      }
+      setAllPreds(grouped)
+      setLoading(false)
+    }).catch(() => setLoading(false))
   }, [])
 
   const savePrediction = useCallback(async (matchNumber: number, nationId: string) => {
