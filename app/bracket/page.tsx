@@ -345,26 +345,23 @@ export default function BracketPage() {
   const matchMap = new Map(matches.map(m => [m.match_number, m]))
 
   useEffect(() => {
-    const sb = createClient()
-    Promise.all([
-      sb.from('cdm_bracket').select('*').order('match_number'),
-      sb.from('cdm_nations').select('id, name, code').order('name'),
-      sb.from('cdm_users').select('id, username, photo_url'),
-      sb.from('cdm_bracket_predictions').select('user_id, match_number, predicted_winner_nation_id'),
-    ]).then(([mRes, nRes, uRes, pRes]) => {
-      setMatches((mRes.data ?? []) as unknown as BracketMatch[])
-      setNationMap(new Map((nRes.data ?? []).map(n => [n.id, n])))
-      const users = (uRes.data ?? []) as CdmUser[]
-      setCdmUsers(users)
-      if (users.length) setSelectedUserId(users[0].id)
-      const grouped: Record<string, Record<number, string>> = {}
-      for (const p of (pRes.data ?? [])) {
-        if (!grouped[p.user_id]) grouped[p.user_id] = {}
-        grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
-      }
-      setAllPreds(grouped)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    fetch('/api/bracket/data')
+      .then(r => r.json())
+      .then(({ matches: m, nations, users, predictions }) => {
+        setMatches(m ?? [])
+        setNationMap(new Map((nations ?? []).map((n: Nation) => [n.id, n])))
+        const cdmUsersList = (users ?? []) as CdmUser[]
+        setCdmUsers(cdmUsersList)
+        if (cdmUsersList.length) setSelectedUserId(cdmUsersList[0].id)
+        const grouped: Record<string, Record<number, string>> = {}
+        for (const p of (predictions ?? [])) {
+          if (!grouped[p.user_id]) grouped[p.user_id] = {}
+          grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
+        }
+        setAllPreds(grouped)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
   const savePrediction = useCallback(async (matchNumber: number, nationId: string) => {
