@@ -12,6 +12,8 @@ const BYPASS_PATHS = [
   '/api/admin/import-squads',
   '/api/admin/clear-players',
   '/api/admin/import-ratings',
+  '/api/bracket',
+  '/bracket',
   '/guide',
 ]
 
