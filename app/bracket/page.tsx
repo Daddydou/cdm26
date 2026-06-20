@@ -349,14 +349,16 @@ export default function BracketPage() {
     const supabase = createClient()
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       console.log('[bracket] userId from getUser:', user?.id)
+      let cdmUserData: CdmUser | null = null
       if (user?.id) {
-        const { data: cdmUserData } = await supabase
+        const { data } = await supabase
           .from('cdm_users')
           .select('id, username, photo_url')
           .eq('auth_id', user.id)
           .maybeSingle()
+        cdmUserData = (data as CdmUser | null) ?? null
         console.log('[bracket] cdmUser:', cdmUserData?.id ?? null, cdmUserData?.username ?? null)
-        if (cdmUserData) setCdmUser(cdmUserData as CdmUser)
+        if (cdmUserData) setCdmUser(cdmUserData)
       }
 
       const { matches: m, nations, users, predictions } = await fetch('/api/bracket/data').then(r => r.json())
@@ -372,7 +374,15 @@ export default function BracketPage() {
       }
       setAllPreds(grouped)
       setLoading(false)
-    }).catch(() => setLoading(false))
+
+      // Debug : état après fetch
+      const isLocked = new Date() >= LOCK_TIME
+      console.log('[bracket] cdmUser:', cdmUserData?.username ?? null, '| isLocked:', isLocked)
+      console.log('[bracket] matches chargés:', (m ?? []).length)
+      // Vérif teams seizième M73 — si null, boutons désactivés (teamsKnown=false)
+      const m73 = (m ?? []).find((x: BracketMatch) => x.match_number === 73)
+      console.log('[bracket] M73 team_a_nation_id:', m73?.team_a_nation_id ?? null, '| team_b_nation_id:', m73?.team_b_nation_id ?? null)
+    }).catch((err) => { console.log('[bracket] erreur fetch:', err); setLoading(false) })
   }, [])
 
   const savePrediction = useCallback(async (matchNumber: number, nationId: string) => {
