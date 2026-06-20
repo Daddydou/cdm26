@@ -343,6 +343,7 @@ export default function BracketPage() {
   const matchMap = new Map(matches.map(m => [m.match_number, m]))
 
   useEffect(() => {
+    console.log('[bracket] début fetch')
     const sb = createClient()
     Promise.all([
       sb.from('cdm_bracket').select('*').order('match_number'),
@@ -350,6 +351,11 @@ export default function BracketPage() {
       sb.from('cdm_users').select('id, username, photo_url'),
       sb.from('cdm_bracket_predictions').select('user_id, match_number, predicted_winner_nation_id'),
     ]).then(([mRes, nRes, uRes, pRes]) => {
+      console.log('[bracket] cdm_bracket:', mRes.data?.length, mRes.error?.message)
+      console.log('[bracket] cdm_nations:', nRes.data?.length, nRes.error?.message)
+      console.log('[bracket] cdm_users:', uRes.data?.length, uRes.error?.message)
+      console.log('[bracket] cdm_bracket_predictions:', pRes.data?.length, pRes.error?.message)
+
       setMatches((mRes.data ?? []) as unknown as BracketMatch[])
       setNationMap(new Map((nRes.data ?? []).map(n => [n.id, n])))
       const users = (uRes.data ?? []) as CdmUser[]
@@ -362,6 +368,9 @@ export default function BracketPage() {
         grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
       }
       setAllPreds(grouped)
+      setLoading(false)
+    }).catch(err => {
+      console.log('[bracket] erreur:', err)
       setLoading(false)
     })
   }, [])
