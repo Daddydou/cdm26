@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+// createClient() = createBrowserClient(@supabase/ssr) — client public anon, identique aux autres pages 'use client'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/hooks/useUser'
 
@@ -328,7 +329,8 @@ function BracketAccordion({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BracketPage() {
-  const { cdmUser, loading: userLoading } = useUser()
+  // userLoading n'est PAS dans la gate de rendu : l'auth peut être lente sans bloquer l'affichage
+  const { cdmUser } = useUser()
 
   const [matches,        setMatches]        = useState<BracketMatch[]>([])
   const [nationMap,      setNationMap]      = useState<Map<string, Nation>>(new Map())
@@ -456,7 +458,7 @@ export default function BracketPage() {
 
       <main className="max-w-lg mx-auto px-4 py-4 pb-24 space-y-4">
 
-        {loading || userLoading ? (
+        {loading ? (
           <div className="flex items-center justify-center h-48 text-zinc-500 text-sm">
             Chargement…
           </div>
