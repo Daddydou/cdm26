@@ -63,6 +63,57 @@ function Avatar({
   )
 }
 
+// ─── Bracket scoring ──────────────────────────────────────────────────────────
+
+const BRACKET_LOCK = new Date('2026-06-28T21:00:00Z')
+
+const BRACKET_ROUND_POINTS: Record<string, number> = {
+  seizieme: 1, huitieme: 2, quart: 4, demi: 8, bronze: 4, finale: 16,
+}
+
+type BracketScore = {
+  userId: string; username: string; photo_url: string | null; points: number; correct: number
+}
+
+async function computeBracketScores(supabaseAdmin: ReturnType<typeof createAdminClient>): Promise<BracketScore[]> {
+  const [matchesRes, predsRes, usersRes] = await Promise.all([
+    supabaseAdmin
+      .from('cdm_bracket')
+      .select('match_number, round, score_a, score_b, winner_nation_id')
+      .not('winner_nation_id', 'is', null),
+    supabaseAdmin
+      .from('cdm_bracket_predictions')
+      .select('user_id, match_number, predicted_winner_nation_id, predicted_score_a, predicted_score_b'),
+    supabaseAdmin
+      .from('cdm_users')
+      .select('id, username, photo_url'),
+  ])
+
+  const matches     = matchesRes.data ?? []
+  const predictions = predsRes.data ?? []
+  const users       = usersRes.data ?? []
+  const matchMap    = new Map(matches.map(m => [m.match_number, m]))
+
+  const scores = new Map<string, BracketScore>()
+  for (const u of users) {
+    scores.set(u.id, { userId: u.id, username: u.username, photo_url: u.photo_url, points: 0, correct: 0 })
+  }
+
+  for (const pred of predictions) {
+    const match = matchMap.get(pred.match_number)
+    const entry = scores.get(pred.user_id)
+    if (!match || !entry) continue
+    if (pred.predicted_winner_nation_id === match.winner_nation_id) {
+      const base  = BRACKET_ROUND_POINTS[match.round] ?? 1
+      const exact = pred.predicted_score_a === match.score_a && pred.predicted_score_b === match.score_b
+      entry.points += exact ? Math.round(base * 1.5) : base
+      entry.correct++
+    }
+  }
+
+  return [...scores.values()].sort((a, b) => b.points - a.points)
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function HomePage() {
@@ -153,6 +204,9 @@ export default async function HomePage() {
       return nationFilter ? q.or(nationFilter).maybeSingle() : q.maybeSingle()
     })(),
   ])
+
+  const isBracketLocked = new Date() >= BRACKET_LOCK
+  const bracketScores   = isBracketLocked ? await computeBracketScores(supabaseAdmin) : []
 
   const me = meRes.data
   const cdmUsers: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
@@ -345,6 +399,58 @@ export default async function HomePage() {
             )}
           </div>
         </section>
+
+        {/* ── Classement bracket ── */}
+        {isBracketLocked && bracketScores.length > 0 && (
+          <section>
+            <h2 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.12em] mb-3">
+              Classement bracket
+            </h2>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-zinc-950/40">
+                <div className="w-7" />
+                <div className="flex-1 text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">Joueur</div>
+                <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider w-16 text-right">Corrects</div>
+                <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider w-12 text-right">Points</div>
+              </div>
+              <ul>
+                {bracketScores.map((entry, i) => {
+                  const isMe = cdmUsers.find(u => u.id === entry.userId)?.auth_id === user?.id
+                  return (
+                    <li key={entry.userId}>
+                      <div className={[
+                        'flex items-center gap-3 px-4 py-3 transition-colors',
+                        i < bracketScores.length - 1 ? 'border-b border-zinc-800/70' : '',
+                        isMe ? 'bg-green-950/25' : '',
+                      ].join(' ')}>
+                        <div className="w-7 text-center flex-shrink-0">
+                          {i < 3
+                            ? <span className="text-base leading-none">{MEDALS[i]}</span>
+                            : <span className="text-xs text-zinc-600 font-mono tabular-nums">{i + 1}</span>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate leading-tight ${isMe ? 'text-green-400' : 'text-zinc-100'}`}>
+                            {entry.username}
+                            {isMe && <span className="ml-1.5 text-[10px] text-zinc-600 font-normal">moi</span>}
+                          </p>
+                        </div>
+                        <div className="w-16 text-right flex-shrink-0">
+                          <span className="text-xs text-zinc-500 tabular-nums">{entry.correct} ✓</span>
+                        </div>
+                        <div className="w-12 text-right flex-shrink-0">
+                          <span className={`text-sm font-bold tabular-nums ${entry.points > 0 ? 'text-green-400' : 'text-zinc-600'}`}>
+                            {entry.points}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </section>
+        )}
 
         {/* ── Match en cours ── */}
         {enCoursMatch && (
