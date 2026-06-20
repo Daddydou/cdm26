@@ -343,47 +343,26 @@ export default function BracketPage() {
   const matchMap = new Map(matches.map(m => [m.match_number, m]))
 
   useEffect(() => {
-    const withTimeout = <T,>(p: Promise<T>, label: string): Promise<T> =>
-      Promise.race([
-        p,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`[bracket] TIMEOUT 10s: ${label}`)), 10_000)
-        ),
-      ])
-
     async function fetchAll() {
-      console.log('[bracket] début fetch — client:', typeof createClient)
-      // Supabase URL utilisée (vérif client public)
+      console.log('[bracket] début fetch')
       console.log('[bracket] SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
 
       const sb = createClient()
 
       console.log('[bracket] → cdm_bracket...')
-      const mRes = await withTimeout(
-        sb.from('cdm_bracket').select('*').order('match_number'),
-        'cdm_bracket'
-      )
+      const mRes = await sb.from('cdm_bracket').select('*').order('match_number')
       console.log('[bracket] ✓ cdm_bracket:', mRes.data?.length ?? 0, 'rows | err:', mRes.error?.message)
 
       console.log('[bracket] → cdm_nations...')
-      const nRes = await withTimeout(
-        sb.from('cdm_nations').select('id, name, code').order('name'),
-        'cdm_nations'
-      )
+      const nRes = await sb.from('cdm_nations').select('id, name, code').order('name')
       console.log('[bracket] ✓ cdm_nations:', nRes.data?.length ?? 0, 'rows | err:', nRes.error?.message)
 
       console.log('[bracket] → cdm_users...')
-      const uRes = await withTimeout(
-        sb.from('cdm_users').select('id, username, photo_url'),
-        'cdm_users'
-      )
+      const uRes = await sb.from('cdm_users').select('id, username, photo_url')
       console.log('[bracket] ✓ cdm_users:', uRes.data?.length ?? 0, 'rows | err:', uRes.error?.message)
 
       console.log('[bracket] → cdm_bracket_predictions...')
-      const pRes = await withTimeout(
-        sb.from('cdm_bracket_predictions').select('user_id, match_number, predicted_winner_nation_id'),
-        'cdm_bracket_predictions'
-      )
+      const pRes = await sb.from('cdm_bracket_predictions').select('user_id, match_number, predicted_winner_nation_id')
       console.log('[bracket] ✓ cdm_bracket_predictions:', pRes.data?.length ?? 0, 'rows | err:', pRes.error?.message)
 
       setMatches((mRes.data ?? []) as unknown as BracketMatch[])
