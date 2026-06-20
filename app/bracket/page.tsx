@@ -332,9 +332,9 @@ export default function BracketPage() {
   // userLoading n'est PAS dans la gate de rendu : l'auth peut être lente sans bloquer l'affichage
   const { cdmUser } = useUser()
 
-  const [matches,        _setMatches]       = useState<BracketMatch[]>([])
-  const [nationMap,      _setNationMap]     = useState<Map<string, Nation>>(new Map())
-  const [cdmUsers,       _setCdmUsers]      = useState<CdmUser[]>([])
+  const [matches,        setMatches]        = useState<BracketMatch[]>([])
+  const [nationMap,      setNationMap]      = useState<Map<string, Nation>>(new Map())
+  const [cdmUsers,       setCdmUsers]       = useState<CdmUser[]>([])
   const [allPreds,       setAllPreds]       = useState<Record<string, Record<number, string>>>({})
   const [loading,        setLoading]        = useState(true)
   const [saving,         setSaving]         = useState(false)
@@ -345,13 +345,26 @@ export default function BracketPage() {
   const matchMap = new Map(matches.map(m => [m.match_number, m]))
 
   useEffect(() => {
-    console.log('[bracket] useEffect déclenché')
     const sb = createClient()
-    console.log('[bracket] client créé:', sb)
-    sb.from('cdm_bracket').select('count').then(res => {
-      console.log('[bracket] résultat:', res)
+    Promise.all([
+      sb.from('cdm_bracket').select('*').order('match_number'),
+      sb.from('cdm_nations').select('id, name, code').order('name'),
+      sb.from('cdm_users').select('id, username, photo_url'),
+      sb.from('cdm_bracket_predictions').select('user_id, match_number, predicted_winner_nation_id'),
+    ]).then(([mRes, nRes, uRes, pRes]) => {
+      setMatches((mRes.data ?? []) as unknown as BracketMatch[])
+      setNationMap(new Map((nRes.data ?? []).map(n => [n.id, n])))
+      const users = (uRes.data ?? []) as CdmUser[]
+      setCdmUsers(users)
+      if (users.length) setSelectedUserId(users[0].id)
+      const grouped: Record<string, Record<number, string>> = {}
+      for (const p of (pRes.data ?? [])) {
+        if (!grouped[p.user_id]) grouped[p.user_id] = {}
+        grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
+      }
+      setAllPreds(grouped)
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }, [])
 
   const savePrediction = useCallback(async (matchNumber: number, nationId: string) => {
