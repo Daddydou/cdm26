@@ -1,25 +1,21 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET(request: NextRequest) {
-  // Identify the connected user and verify cdm_users lookup
-  try {
-    const serverClient = await createClient()
-    const { data: { user }, error: authError } = await serverClient.auth.getUser()
-    console.log('[bracket/data] auth_id:', user?.id ?? null, '| auth error:', authError?.message ?? null)
+export async function GET() {
+  // Identification de l'utilisateur : même méthode que le middleware
+  // (session Supabase dans les cookies → getUser() → lookup cdm_users par auth_id)
+  const serverClient = await createClient()
+  const { data: { user }, error: authError } = await serverClient.auth.getUser()
+  console.log('[bracket/data] auth_id:', user?.id ?? null, '| auth error:', authError?.message ?? null)
 
-    if (user?.id) {
-      const admin = createAdminClient()
-      const { data: cdmUser, error: profileError } = await admin
-        .from('cdm_users')
-        .select('id, username')
-        .eq('auth_id', user.id)
-        .single()
-      console.log('[bracket/data] cdm_user:', cdmUser?.id ?? null, cdmUser?.username ?? null, '| error:', profileError?.message ?? null)
-    }
-  } catch (e) {
-    console.log('[bracket/data] user lookup exception:', e)
+  if (user?.id) {
+    const { data: cdmUser, error: profileError } = await createAdminClient()
+      .from('cdm_users')
+      .select('id, username')
+      .eq('auth_id', user.id)
+      .maybeSingle()
+    console.log('[bracket/data] cdm_user:', cdmUser?.id ?? null, cdmUser?.username ?? null, '| error:', profileError?.message ?? null)
   }
 
   const supabase = createAdminClient()
