@@ -445,12 +445,6 @@ export default function BracketPage() {
               </div>
             )}
 
-            {!cdmUser && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-6 text-center">
-                <p className="text-sm text-zinc-400">Connectez-vous pour saisir vos pronostics</p>
-              </div>
-            )}
-
             <BracketAccordion
               matches={matches}
               matchMap={matchMap}
