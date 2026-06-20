@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   // Identification de l'utilisateur : même méthode que le middleware
   // (session Supabase dans les cookies → getUser() → lookup cdm_users par auth_id)
@@ -37,10 +39,13 @@ export async function GET() {
       .select('user_id, match_number, predicted_winner_nation_id'),
   ])
 
-  return NextResponse.json({
-    matches:     matchesRes.data     ?? [],
-    nations:     nationsRes.data     ?? [],
-    users:       usersRes.data       ?? [],
-    predictions: predsRes.data       ?? [],
-  })
+  return NextResponse.json(
+    {
+      matches:     matchesRes.data ?? [],
+      nations:     nationsRes.data ?? [],
+      users:       usersRes.data   ?? [],
+      predictions: predsRes.data   ?? [],
+    },
+    { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+  )
 }
