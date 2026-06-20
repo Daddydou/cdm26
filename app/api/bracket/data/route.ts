@@ -1,57 +1,41 @@
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   console.log('[bracket/data] START')
   try {
-    // Lecture manuelle des cookies pour vérifier la présence de la session Supabase
-    const cookieStore = cookies()
-    const allCookies = cookieStore.getAll()
-    const sbCookies = allCookies.filter(c => c.name.startsWith('sb-'))
-    console.log('[bracket/data] cookies sb- présents:', sbCookies.map(c => c.name))
-    console.log('[bracket/data] tous les cookies:', allCookies.map(c => c.name))
-
-    // Identification via session Supabase
-    const serverClient = await createClient()
-    const { data: authData, error: authError } = await serverClient.auth.getUser()
-    console.log('[bracket/data] auth result:', JSON.stringify({ user: authData?.user?.id ?? null, error: authError?.message ?? null }))
-
-    if (authData?.user?.id) {
-      const { data: cdmUser, error: profileError } = await createAdminClient()
-        .from('cdm_users')
-        .select('id, username')
-        .eq('auth_id', authData.user.id)
-        .maybeSingle()
-      console.log('[bracket/data] cdm_user:', cdmUser?.id ?? null, cdmUser?.username ?? null, '| error:', profileError?.message ?? null)
-    }
-
     const supabase = createAdminClient()
 
-    const [matchesRes, nationsRes, usersRes, predsRes] = await Promise.all([
-      supabase
-        .from('cdm_bracket')
-        .select('*')
-        .order('match_number'),
-      supabase
-        .from('cdm_nations')
-        .select('id, name, code')
-        .order('name'),
-      supabase
+    // auth_id envoyé par le client (même pattern que savePick / PickClient)
+    const authId = request.nextUrl.searchParams.get('auth_id')
+    console.log('[bracket/data] auth_id reçu:', authId)
+
+    // Lookup cdm_user depuis auth_id
+    let currentUser: { id: string; username: string } | null = null
+    if (authId) {
+      const { data, error } = await supabase
         .from('cdm_users')
-        .select('id, username, photo_url'),
-      supabase
-        .from('cdm_bracket_predictions')
-        .select('user_id, match_number, predicted_winner_nation_id'),
+        .select('id, username')
+        .eq('auth_id', authId)
+        .maybeSingle()
+      console.log('[bracket/data] cdm_user:', data?.id ?? null, data?.username ?? null, '| error:', error?.message ?? null)
+      currentUser = data ?? null
+    }
+
+    const [matchesRes, nationsRes, usersRes, predsRes] = await Promise.all([
+      supabase.from('cdm_bracket').select('*').order('match_number'),
+      supabase.from('cdm_nations').select('id, name, code').order('name'),
+      supabase.from('cdm_users').select('id, username, photo_url'),
+      supabase.from('cdm_bracket_predictions').select('user_id, match_number, predicted_winner_nation_id'),
     ])
 
     console.log('[bracket/data] queries done — bracket:', matchesRes.data?.length, 'nations:', nationsRes.data?.length, 'users:', usersRes.data?.length, 'preds:', predsRes.data?.length)
 
     return NextResponse.json(
       {
+        currentUser,
         matches:     matchesRes.data ?? [],
         nations:     nationsRes.data ?? [],
         users:       usersRes.data   ?? [],

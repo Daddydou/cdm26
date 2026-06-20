@@ -1,9 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-// createClient() = createBrowserClient(@supabase/ssr) — client public anon, identique aux autres pages 'use client'
 import { createClient } from '@/lib/supabase/client'
-import { useUser } from '@/hooks/useUser'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -329,9 +327,7 @@ function BracketAccordion({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BracketPage() {
-  // userLoading n'est PAS dans la gate de rendu : l'auth peut être lente sans bloquer l'affichage
-  const { cdmUser } = useUser()
-
+  const [cdmUser,        setCdmUser]        = useState<CdmUser | null>(null)
   const [matches,        setMatches]        = useState<BracketMatch[]>([])
   const [nationMap,      setNationMap]      = useState<Map<string, Nation>>(new Map())
   const [cdmUsers,       setCdmUsers]       = useState<CdmUser[]>([])
@@ -346,9 +342,17 @@ export default function BracketPage() {
   console.log('[bracket] isLocked:', isLocked, '| cdmUser:', cdmUser?.id ?? null)
 
   useEffect(() => {
-    fetch('/api/bracket/data')
-      .then(r => r.json())
-      .then(({ matches: m, nations, users, predictions }) => {
+    // Même pattern que PickClient : getUser() browser → envoyer auth_id au serveur
+    const sb = createClient()
+    sb.auth.getUser().then(({ data: { user } }) => {
+      console.log('[bracket] auth_id from getUser:', user?.id ?? null)
+      const url = user?.id
+        ? `/api/bracket/data?auth_id=${user.id}`
+        : '/api/bracket/data'
+      return fetch(url)
+    }).then(r => r.json())
+      .then(({ currentUser, matches: m, nations, users, predictions }) => {
+        if (currentUser) setCdmUser(currentUser)
         setMatches(m ?? [])
         setNationMap(new Map((nations ?? []).map((n: Nation) => [n.id, n])))
         const cdmUsersList = (users ?? []) as CdmUser[]
