@@ -345,46 +345,11 @@ export default function BracketPage() {
   const matchMap = new Map(matches.map(m => [m.match_number, m]))
 
   useEffect(() => {
-    async function fetchAll() {
-      console.log('[bracket] début fetch')
-      console.log('[bracket] SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-
-      const sb = createClient()
-
-      console.log('[bracket] → cdm_bracket...')
-      const mRes = await sb.from('cdm_bracket').select('*').order('match_number')
-      console.log('[bracket] ✓ cdm_bracket:', mRes.data?.length ?? 0, 'rows | err:', mRes.error?.message)
-
-      console.log('[bracket] → cdm_nations...')
-      const nRes = await sb.from('cdm_nations').select('id, name, code').order('name')
-      console.log('[bracket] ✓ cdm_nations:', nRes.data?.length ?? 0, 'rows | err:', nRes.error?.message)
-
-      console.log('[bracket] → cdm_users...')
-      const uRes = await sb.from('cdm_users').select('id, username, photo_url')
-      console.log('[bracket] ✓ cdm_users:', uRes.data?.length ?? 0, 'rows | err:', uRes.error?.message)
-
-      console.log('[bracket] → cdm_bracket_predictions...')
-      const pRes = await sb.from('cdm_bracket_predictions').select('user_id, match_number, predicted_winner_nation_id')
-      console.log('[bracket] ✓ cdm_bracket_predictions:', pRes.data?.length ?? 0, 'rows | err:', pRes.error?.message)
-
-      setMatches((mRes.data ?? []) as unknown as BracketMatch[])
-      setNationMap(new Map((nRes.data ?? []).map(n => [n.id, n])))
-      const users = (uRes.data ?? []) as CdmUser[]
-      setCdmUsers(users)
-      if (users.length) setSelectedUserId(users[0].id)
-
-      const grouped: Record<string, Record<number, string>> = {}
-      for (const p of (pRes.data ?? [])) {
-        if (!grouped[p.user_id]) grouped[p.user_id] = {}
-        grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
-      }
-      setAllPreds(grouped)
-      console.log('[bracket] fetch terminé')
-      setLoading(false)
-    }
-
-    fetchAll().catch(err => {
-      console.log('[bracket] erreur fatale:', err?.message ?? err)
+    console.log('[bracket] useEffect déclenché')
+    const sb = createClient()
+    console.log('[bracket] client créé:', sb)
+    sb.from('cdm_bracket').select('count').then(res => {
+      console.log('[bracket] résultat:', res)
       setLoading(false)
     })
   }, [])
