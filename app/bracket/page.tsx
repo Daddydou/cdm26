@@ -332,9 +332,9 @@ export default function BracketPage() {
   // userLoading n'est PAS dans la gate de rendu : l'auth peut être lente sans bloquer l'affichage
   const { cdmUser } = useUser()
 
-  const [matches,        setMatches]        = useState<BracketMatch[]>([])
-  const [nationMap,      setNationMap]      = useState<Map<string, Nation>>(new Map())
-  const [cdmUsers,       setCdmUsers]       = useState<CdmUser[]>([])
+  const [matches,        _setMatches]       = useState<BracketMatch[]>([])
+  const [nationMap,      _setNationMap]     = useState<Map<string, Nation>>(new Map())
+  const [cdmUsers,       _setCdmUsers]      = useState<CdmUser[]>([])
   const [allPreds,       setAllPreds]       = useState<Record<string, Record<number, string>>>({})
   const [loading,        setLoading]        = useState(true)
   const [saving,         setSaving]         = useState(false)
