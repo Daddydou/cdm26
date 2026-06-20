@@ -343,6 +343,7 @@ export default function BracketPage() {
 
   const isLocked = new Date() >= LOCK_TIME
   const matchMap = new Map(matches.map(m => [m.match_number, m]))
+  console.log('[bracket] isLocked:', isLocked, '| cdmUser:', cdmUser?.id ?? null)
 
   useEffect(() => {
     fetch('/api/bracket/data')
@@ -450,7 +451,7 @@ export default function BracketPage() {
               matchMap={matchMap}
               nationMap={nationMap}
               preds={myPredsMap}
-              isLocked={isLocked || !cdmUser}
+              isLocked={isLocked}
               readonly={false}
               onPredict={savePrediction}
             />
