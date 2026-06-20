@@ -1,21 +1,28 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  // Identification de l'utilisateur : même méthode que le middleware
-  // (session Supabase dans les cookies → getUser() → lookup cdm_users par auth_id)
-  const serverClient = await createClient()
-  const { data: { user }, error: authError } = await serverClient.auth.getUser()
-  console.log('[bracket/data] auth_id:', user?.id ?? null, '| auth error:', authError?.message ?? null)
+  // Lecture manuelle des cookies pour vérifier la présence de la session Supabase
+  const cookieStore = cookies()
+  const allCookies = cookieStore.getAll()
+  const sbCookies = allCookies.filter(c => c.name.startsWith('sb-'))
+  console.log('[bracket/data] cookies sb- présents:', sbCookies.map(c => c.name))
+  console.log('[bracket/data] tous les cookies:', allCookies.map(c => c.name))
 
-  if (user?.id) {
+  // Identification via session Supabase
+  const serverClient = await createClient()
+  const { data: authData, error: authError } = await serverClient.auth.getUser()
+  console.log('[bracket/data] auth result:', JSON.stringify({ user: authData?.user?.id ?? null, error: authError?.message ?? null }))
+
+  if (authData?.user?.id) {
     const { data: cdmUser, error: profileError } = await createAdminClient()
       .from('cdm_users')
       .select('id, username')
-      .eq('auth_id', user.id)
+      .eq('auth_id', authData.user.id)
       .maybeSingle()
     console.log('[bracket/data] cdm_user:', cdmUser?.id ?? null, cdmUser?.username ?? null, '| error:', profileError?.message ?? null)
   }
