@@ -409,7 +409,7 @@ export default function BracketPage() {
         if (cdmUserData) setCdmUser(cdmUserData)
       }
 
-      const { matches: m, nations, users, predictions } = await fetch('/api/bracket/data').then(r => r.json())
+      const { matches: m, nations, users, predictions, myPredictions } = await fetch('/api/bracket/data').then(r => r.json())
       setMatches(m ?? [])
       setNationMap(new Map((nations ?? []).map((n: Nation) => [n.id, n])))
       const cdmUsersList = (users ?? []) as CdmUser[]
@@ -422,26 +422,20 @@ export default function BracketPage() {
       }
       setAllPreds(grouped)
 
-      // Injection directe des prédictions de l'utilisateur connecté dans myPredsMap
-      if (cdmUserData) {
-        const userPreds = (predictions ?? []).filter(
-          (p: { user_id: string }) => p.user_id === cdmUserData.id
-        )
-        const userMap = new Map<number, string>(
-          userPreds.map((p: { match_number: number; predicted_winner_nation_id: string }) => [
-            p.match_number,
-            p.predicted_winner_nation_id,
-          ])
-        )
-        setMyPredsMap(userMap)
-        console.log('[bracket] preds rechargées:', userMap.size, 'entrées')
-      }
+      // myPredictions est déjà filtré par cdm_users.id côté serveur (auth_id → cdm_user.id)
+      const userMap = new Map<number, string>(
+        (myPredictions ?? []).map((p: { match_number: number; predicted_winner_nation_id: string }) => [
+          p.match_number,
+          p.predicted_winner_nation_id,
+        ])
+      )
+      setMyPredsMap(userMap)
+      console.log('[bracket] preds rechargées:', userMap.size, 'entrées')
 
       setLoading(false)
 
       const isLocked = new Date() >= LOCK_TIME
-      const userPredCount = cdmUserData ? Object.keys(grouped[cdmUserData.id] ?? {}).length : 0
-      console.log('[bracket] preds chargées:', (predictions ?? []).length, '| user preds:', userPredCount, '(user:', cdmUserData?.username ?? 'none', ')')
+      console.log('[bracket] preds chargées:', (predictions ?? []).length, '| user preds:', userMap.size, '(user:', cdmUserData?.username ?? 'none', ')')
       console.log('[bracket] cdmUser:', cdmUserData?.username ?? null, '| isLocked:', isLocked)
       console.log('[bracket] matches chargés:', (m ?? []).length)
       const m73 = (m ?? []).find((x: BracketMatch) => x.match_number === 73)
