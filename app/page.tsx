@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import NotificationButton from './components/NotificationButton'
+import LogoutButton from './components/LogoutButton'
 import MatchPickRow, { type MatchPick, type MatchRating } from './components/MatchPickRow'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -321,6 +322,7 @@ export default async function HomePage() {
                 </a>
               )}
               <NotificationButton />
+              <LogoutButton />
               <Link href={`/profil/${me.id}`} className="flex items-center gap-2.5 group">
                 <span className="text-xs text-zinc-400 group-hover:text-zinc-300 transition-colors hidden sm:block">
                   {me.username}
