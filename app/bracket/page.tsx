@@ -374,6 +374,7 @@ export default function BracketPage() {
   const [nationMap,      setNationMap]      = useState<Map<string, Nation>>(new Map())
   const [cdmUsers,       setCdmUsers]       = useState<CdmUser[]>([])
   const [allPreds,       setAllPreds]       = useState<Record<string, Record<number, string>>>({})
+  const [myPredsMap,     setMyPredsMap]     = useState<Map<number, string>>(new Map())
   const [loading,        setLoading]        = useState(true)
   const [saving,         setSaving]         = useState(false)
   const [activeTab,      setActiveTab]      = useState<'mine' | 'others'>('mine')
@@ -420,6 +421,22 @@ export default function BracketPage() {
         grouped[p.user_id][p.match_number] = p.predicted_winner_nation_id
       }
       setAllPreds(grouped)
+
+      // Injection directe des prédictions de l'utilisateur connecté dans myPredsMap
+      if (cdmUserData) {
+        const userPreds = (predictions ?? []).filter(
+          (p: { user_id: string }) => p.user_id === cdmUserData.id
+        )
+        const userMap = new Map<number, string>(
+          userPreds.map((p: { match_number: number; predicted_winner_nation_id: string }) => [
+            p.match_number,
+            p.predicted_winner_nation_id,
+          ])
+        )
+        setMyPredsMap(userMap)
+        console.log('[bracket] preds rechargées:', userMap.size, 'entrées')
+      }
+
       setLoading(false)
 
       const isLocked = new Date() >= LOCK_TIME
@@ -447,6 +464,7 @@ export default function BracketPage() {
         ...prev,
         [cdmUser.id]: { ...(prev[cdmUser.id] ?? {}), [matchNumber]: nationId },
       }))
+      setMyPredsMap(prev => new Map(prev).set(matchNumber, nationId))
     }
     setSaving(false)
   }, [cdmUser, isLocked, saving])
@@ -454,13 +472,12 @@ export default function BracketPage() {
   const handleValidateRound = useCallback(async (roundKey: string) => {
     if (!cdmUser || isLocked) return
     const roundMatches = matches.filter(m => m.round === roundKey)
-    const userPreds = allPreds[cdmUser.id] ?? {}
     const rows = roundMatches
-      .filter(m => userPreds[m.match_number])
+      .filter(m => myPredsMap.has(m.match_number))
       .map(m => ({
         user_id: cdmUser.id,
         match_number: m.match_number,
-        predicted_winner_nation_id: userPreds[m.match_number],
+        predicted_winner_nation_id: myPredsMap.get(m.match_number)!,
       }))
     if (!rows.length) return
     setSaving(true)
@@ -469,13 +486,8 @@ export default function BracketPage() {
     setSaving(false)
     const label = ROUND_CONFIG.find(r => r.key === roundKey)?.label ?? roundKey
     setToast(`✅ ${label} sauvegardés !`)
-  }, [cdmUser, isLocked, matches, allPreds])
+  }, [cdmUser, isLocked, matches, myPredsMap])
 
-  const myPredsMap: Map<number, string> = new Map(
-    cdmUser
-      ? Object.entries(allPreds[cdmUser.id] ?? {}).map(([k, v]) => [parseInt(k), v])
-      : []
-  )
   const viewPredsMap: Map<number, string> = new Map(
     selectedUserId
       ? Object.entries(allPreds[selectedUserId] ?? {}).map(([k, v]) => [parseInt(k), v])
