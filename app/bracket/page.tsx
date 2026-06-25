@@ -423,6 +423,8 @@ export default function BracketPage() {
       setLoading(false)
 
       const isLocked = new Date() >= LOCK_TIME
+      const userPredCount = cdmUserData ? Object.keys(grouped[cdmUserData.id] ?? {}).length : 0
+      console.log('[bracket] preds chargées:', (predictions ?? []).length, '| user preds:', userPredCount, '(user:', cdmUserData?.username ?? 'none', ')')
       console.log('[bracket] cdmUser:', cdmUserData?.username ?? null, '| isLocked:', isLocked)
       console.log('[bracket] matches chargés:', (m ?? []).length)
       const m73 = (m ?? []).find((x: BracketMatch) => x.match_number === 73)
