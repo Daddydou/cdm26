@@ -71,14 +71,13 @@ function resolveNation(
   const wantLoser = src.loser_goes_to_match === matchNumber
 
   if (!wantLoser) {
-    // On veut le vainqueur du match source
     if (src.winner_nation_id) return nationMap.get(src.winner_nation_id) ?? null
     const predId = preds.get(fromMatch)
     if (predId) return nationMap.get(predId) ?? null
     return null
   }
 
-  // On veut le perdant du match source (match pour le bronze)
+  // Perdant du match source (match pour le bronze)
   if (src.winner_nation_id && src.team_a_nation_id && src.team_b_nation_id) {
     const loserId = src.winner_nation_id === src.team_a_nation_id
       ? src.team_b_nation_id
@@ -153,7 +152,8 @@ function MatchCard({
   const isFinished = match.score_a !== null && match.score_b !== null
   const isCorrect  = !!(prediction && isFinished && prediction === match.winner_nation_id)
   const isWrong    = !!(prediction && isFinished && prediction !== match.winner_nation_id)
-  const teamsKnown = !!teamA && !!teamB
+  // Cliquable dès que les deux nation IDs sont connus en base, indépendamment de la résolution
+  const teamsKnown = !!(match.team_a_nation_id && match.team_b_nation_id)
   const cantPick   = isLocked || readonly || !teamsKnown
 
   const predictedNation = prediction === teamA?.id ? teamA
@@ -170,20 +170,26 @@ function MatchCard({
       <div className="flex items-center gap-2">
         <TeamButton
           nation={teamA}
-          isSelected={prediction === teamA?.id}
-          isRealWinner={isFinished && match.winner_nation_id === teamA?.id}
+          isSelected={prediction === (teamA?.id ?? match.team_a_nation_id)}
+          isRealWinner={isFinished && match.winner_nation_id === (teamA?.id ?? match.team_a_nation_id)}
           isFinished={isFinished}
           disabled={cantPick}
-          onClick={() => teamA && onPredict(teamA.id)}
+          onClick={() => {
+            const id = teamA?.id ?? match.team_a_nation_id
+            if (id) onPredict(id)
+          }}
         />
         <span className="text-zinc-600 text-[10px] flex-shrink-0">vs</span>
         <TeamButton
           nation={teamB}
-          isSelected={prediction === teamB?.id}
-          isRealWinner={isFinished && match.winner_nation_id === teamB?.id}
+          isSelected={prediction === (teamB?.id ?? match.team_b_nation_id)}
+          isRealWinner={isFinished && match.winner_nation_id === (teamB?.id ?? match.team_b_nation_id)}
           isFinished={isFinished}
           disabled={cantPick}
-          onClick={() => teamB && onPredict(teamB.id)}
+          onClick={() => {
+            const id = teamB?.id ?? match.team_b_nation_id
+            if (id) onPredict(id)
+          }}
         />
       </div>
 
@@ -221,6 +227,7 @@ function RoundSection({
   isLocked,
   readonly,
   onPredict,
+  onValidate,
 }: {
   label: string
   matches: BracketMatch[]
@@ -230,10 +237,19 @@ function RoundSection({
   isLocked: boolean
   readonly: boolean
   onPredict: (matchNumber: number, nationId: string) => void
+  onValidate?: () => Promise<void>
 }) {
-  const [open, setOpen] = useState(false)
+  const [open,        setOpen]       = useState(false)
+  const [validating,  setValidating] = useState(false)
   const completedCount = matches.filter(m => preds.has(m.match_number)).length
   const isComplete     = matches.length > 0 && completedCount === matches.length
+
+  async function handleValidate() {
+    if (!onValidate || validating) return
+    setValidating(true)
+    await onValidate()
+    setValidating(false)
+  }
 
   return (
     <div className="border border-zinc-800 rounded-xl overflow-hidden">
@@ -259,23 +275,36 @@ function RoundSection({
       </button>
 
       {open && (
-        <div className="bg-zinc-950/60 border-t border-zinc-800 p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {matches.map(match => {
-            const tA = resolveNation(match.team_a_nation_id, match.team_a_from_match, match.match_number, preds, matchMap, nationMap)
-            const tB = resolveNation(match.team_b_nation_id, match.team_b_from_match, match.match_number, preds, matchMap, nationMap)
-            return (
-              <MatchCard
-                key={match.id}
-                match={match}
-                teamA={tA}
-                teamB={tB}
-                prediction={preds.get(match.match_number) ?? null}
-                isLocked={isLocked}
-                readonly={readonly}
-                onPredict={nationId => onPredict(match.match_number, nationId)}
-              />
-            )
-          })}
+        <div className="bg-zinc-950/60 border-t border-zinc-800 p-3 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {matches.map(match => {
+              const tA = resolveNation(match.team_a_nation_id, match.team_a_from_match, match.match_number, preds, matchMap, nationMap)
+              const tB = resolveNation(match.team_b_nation_id, match.team_b_from_match, match.match_number, preds, matchMap, nationMap)
+              return (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  teamA={tA}
+                  teamB={tB}
+                  prediction={preds.get(match.match_number) ?? null}
+                  isLocked={isLocked}
+                  readonly={readonly}
+                  onPredict={nationId => onPredict(match.match_number, nationId)}
+                />
+              )
+            })}
+          </div>
+
+          {!readonly && !isLocked && onValidate && completedCount > 0 && (
+            <button
+              type="button"
+              onClick={handleValidate}
+              disabled={validating}
+              className="w-full mt-1 py-2.5 rounded-xl text-sm font-semibold bg-green-700 hover:bg-green-600 disabled:opacity-50 disabled:cursor-default text-white transition-colors"
+            >
+              {validating ? 'Sauvegarde…' : `✅ Valider les choix (${completedCount}/${matches.length})`}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -292,6 +321,7 @@ function BracketAccordion({
   isLocked,
   readonly,
   onPredict,
+  onValidateRound,
 }: {
   matches: BracketMatch[]
   matchMap: Map<number, BracketMatch>
@@ -300,6 +330,7 @@ function BracketAccordion({
   isLocked: boolean
   readonly: boolean
   onPredict: (matchNumber: number, nationId: string) => void
+  onValidateRound?: (roundKey: string) => Promise<void>
 }) {
   return (
     <div className="space-y-2">
@@ -317,9 +348,20 @@ function BracketAccordion({
             isLocked={isLocked}
             readonly={readonly}
             onPredict={onPredict}
+            onValidate={onValidateRound ? () => onValidateRound(key) : undefined}
           />
         )
       })}
+    </div>
+  )
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+function Toast({ message }: { message: string }) {
+  return (
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-green-900 border border-green-700 text-green-100 text-sm font-semibold px-5 py-3 rounded-xl shadow-xl pointer-events-none animate-in fade-in slide-in-from-bottom-2">
+      {message}
     </div>
   )
 }
@@ -336,18 +378,21 @@ export default function BracketPage() {
   const [saving,         setSaving]         = useState(false)
   const [activeTab,      setActiveTab]      = useState<'mine' | 'others'>('mine')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [toast,          setToast]          = useState<string | null>(null)
 
   const isLocked = new Date() >= LOCK_TIME
   const matchMap = new Map(matches.map(m => [m.match_number, m]))
   console.log('[bracket] isLocked:', isLocked, '| cdmUser:', cdmUser?.id ?? null)
 
+  // Auto-dismiss toast after 3 s
   useEffect(() => {
-    // Exactement le même pattern que PickClient.tsx :
-    // 1. getUser() via browser client → auth_id
-    // 2. query cdm_users avec le même browser client → cdm_user.id
-    // 3. fetch API pour les données bracket
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  useEffect(() => {
     const supabase = createClient()
-    // getSession() = lecture locale des cookies, pas d'appel réseau (contrairement à getUser())
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const user = session?.user ?? null
       console.log('[bracket] userId from getSession:', user?.id ?? null)
@@ -377,11 +422,9 @@ export default function BracketPage() {
       setAllPreds(grouped)
       setLoading(false)
 
-      // Debug : état après fetch
       const isLocked = new Date() >= LOCK_TIME
       console.log('[bracket] cdmUser:', cdmUserData?.username ?? null, '| isLocked:', isLocked)
       console.log('[bracket] matches chargés:', (m ?? []).length)
-      // Vérif teams seizième M73 — si null, boutons désactivés (teamsKnown=false)
       const m73 = (m ?? []).find((x: BracketMatch) => x.match_number === 73)
       console.log('[bracket] M73 team_a_nation_id:', m73?.team_a_nation_id ?? null, '| team_b_nation_id:', m73?.team_b_nation_id ?? null)
     }).catch((err) => { console.log('[bracket] erreur fetch:', err); setLoading(false) })
@@ -405,6 +448,26 @@ export default function BracketPage() {
     }
     setSaving(false)
   }, [cdmUser, isLocked, saving])
+
+  const handleValidateRound = useCallback(async (roundKey: string) => {
+    if (!cdmUser || isLocked) return
+    const roundMatches = matches.filter(m => m.round === roundKey)
+    const userPreds = allPreds[cdmUser.id] ?? {}
+    const rows = roundMatches
+      .filter(m => userPreds[m.match_number])
+      .map(m => ({
+        user_id: cdmUser.id,
+        match_number: m.match_number,
+        predicted_winner_nation_id: userPreds[m.match_number],
+      }))
+    if (!rows.length) return
+    setSaving(true)
+    const sb = createClient()
+    await sb.from('cdm_bracket_predictions').upsert(rows, { onConflict: 'user_id,match_number' })
+    setSaving(false)
+    const label = ROUND_CONFIG.find(r => r.key === roundKey)?.label ?? roundKey
+    setToast(`✅ ${label} sauvegardés !`)
+  }, [cdmUser, isLocked, matches, allPreds])
 
   const myPredsMap: Map<number, string> = new Map(
     cdmUser
@@ -476,6 +539,7 @@ export default function BracketPage() {
               isLocked={isLocked}
               readonly={false}
               onPredict={savePrediction}
+              onValidateRound={handleValidateRound}
             />
           </>
         ) : (
@@ -514,6 +578,8 @@ export default function BracketPage() {
           </>
         )}
       </main>
+
+      {toast && <Toast message={toast} />}
     </div>
   )
 }
