@@ -152,8 +152,8 @@ function MatchCard({
   const isFinished = match.score_a !== null && match.score_b !== null
   const isCorrect  = !!(prediction && isFinished && prediction === match.winner_nation_id)
   const isWrong    = !!(prediction && isFinished && prediction !== match.winner_nation_id)
-  // Cliquable dès que les deux nation IDs sont connus en base, indépendamment de la résolution
-  const teamsKnown = !!(match.team_a_nation_id && match.team_b_nation_id)
+  // Cliquable dès que les deux équipes sont résolues (en base OU via la cascade des prédictions)
+  const teamsKnown = !!(teamA && teamB)
   const cantPick   = isLocked || readonly || !teamsKnown
 
   const predictedNation = prediction === teamA?.id ? teamA
@@ -295,11 +295,11 @@ function RoundSection({
             })}
           </div>
 
-          {!readonly && !isLocked && onValidate && completedCount > 0 && (
+          {!readonly && !isLocked && onValidate && (
             <button
               type="button"
               onClick={handleValidate}
-              disabled={validating}
+              disabled={validating || completedCount === 0}
               className="w-full mt-1 py-2.5 rounded-xl text-sm font-semibold bg-green-700 hover:bg-green-600 disabled:opacity-50 disabled:cursor-default text-white transition-colors"
             >
               {validating ? 'Sauvegarde…' : `✅ Valider les choix (${completedCount}/${matches.length})`}
