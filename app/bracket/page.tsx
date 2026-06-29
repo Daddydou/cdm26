@@ -550,6 +550,10 @@ export default function BracketPage() {
               onValidateRound={handleValidateRound}
             />
           </>
+        ) : !isLocked ? (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-6 text-center text-sm text-zinc-400">
+            🔒 Les brackets des autres participants seront visibles après le verrouillage (29 juin 19h).
+          </div>
         ) : (
           <>
             {cdmUsers.length > 0 && (
