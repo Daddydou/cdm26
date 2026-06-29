@@ -302,6 +302,8 @@ export default function PickClient({
       setSelB([pick.player_b1_id, pick.player_b2_id].filter(Boolean) as string[])
       setBonusPlayer(pick.bonus_player_id ?? null)
 
+      if (pick.bonus_type === 'espion') setEspionCommitted(true)
+
       if (pick.bonus_type) {
         const found = (userBonuses ?? []).find(ub => ub.bonus_type === pick.bonus_type)
         setActiveBonusId(found?.id ?? null)
@@ -352,6 +354,8 @@ export default function PickClient({
     return null
   })
   const [allInAmount, setAllInAmount] = useState(5)
+  // Espion : true dès que le bonus est sauvegardé en base (révèle les picks adverses, verrouille le retour arrière)
+  const [espionCommitted, setEspionCommitted] = useState<boolean>(existingPick?.bonus_type === 'espion')
 
   console.log('[PickClient] existingPick bonus_data:', existingPick?.bonus_data)
 
@@ -387,6 +391,8 @@ export default function PickClient({
   }
 
   function handleBonusChange(val: string) {
+    // Espion validé : verrouillé, aucun retour en arrière possible
+    if (espionCommitted) return
     setTroisHommePlayer(null)
     setTroisHommeTeam(null)
     if (val !== 'star') setBonusPlayer(null)
@@ -413,7 +419,9 @@ export default function PickClient({
       // bonus_type = valeur texte du bonus (ex: 'mur'), user_bonus_id = UUID pour le décrement
       const activeBonusRecord = (userBonuses ?? []).find(ub => ub.id === activeBonusId)
       fd.set('bonus_type',    activeBonusRecord?.bonus_type ?? '')
-      fd.set('user_bonus_id', (activeBonusId && activeBonusId !== 'star') ? activeBonusId : '')
+      // Espion déjà validé → déjà décrémenté, ne pas le re-décrémenter ici
+      const skipDecrement = espionCommitted && activeBonusType === 'espion'
+      fd.set('user_bonus_id', (activeBonusId && activeBonusId !== 'star' && !skipDecrement) ? activeBonusId : '')
       fd.set('bonus_data',      JSON.stringify(bonusData))
 
       const result = await savePick({ error: null }, fd)
@@ -422,6 +430,36 @@ export default function PickClient({
       } else {
         setToast('Picks enregistrés ! Bonne chance 🎉')
         setTimeout(() => router.push('/matchs'), 2000)
+      }
+    })
+  }
+
+  // Valide explicitement le bonus Espion : sauvegarde en base puis révèle les picks adverses (via refresh)
+  function handleValidateEspion() {
+    if (!canSubmit || isPending || isReadOnly || espionCommitted) return
+    setError(null)
+
+    startTransition(async () => {
+      const fd = new FormData()
+      fd.set('user_auth_id',    userId ?? '')
+      fd.set('match_id',        match.id)
+      fd.set('player_a1_id',    selA[0] ?? '')
+      fd.set('player_a2_id',    selA[1] ?? '')
+      fd.set('player_b1_id',    selB[0] ?? '')
+      fd.set('player_b2_id',    selB[1] ?? '')
+      fd.set('bonus_player_id', bonusPlayer ?? '')
+      const activeBonusRecord = (userBonuses ?? []).find(ub => ub.id === activeBonusId)
+      fd.set('bonus_type',    activeBonusRecord?.bonus_type ?? '')
+      fd.set('user_bonus_id', (activeBonusId && activeBonusId !== 'star') ? activeBonusId : '')
+      fd.set('bonus_data',      '{}')
+
+      const result = await savePick({ error: null }, fd)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        setEspionCommitted(true)
+        setToast('Espion validé — picks adverses révélés 🕵️')
+        router.refresh()
       }
     })
   }
@@ -500,7 +538,8 @@ export default function PickClient({
               <select
                 value={activeBonusId ?? ''}
                 onChange={e => handleBonusChange(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl px-3.5 py-3 text-sm appearance-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 transition-colors cursor-pointer pr-8"
+                disabled={espionCommitted}
+                className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl px-3.5 py-3 text-sm appearance-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/40 transition-colors cursor-pointer pr-8 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">Aucun bonus</option>
                 {(6 - x15Used) > 0 && (
@@ -659,11 +698,39 @@ export default function PickClient({
                   </div>
                 )}
 
-                {/* Espion — message informatif */}
+                {/* Espion — validation explicite avant de révéler les picks adverses */}
                 {activeBonusType === 'espion' && (
-                  <p className="text-xs text-violet-300 bg-violet-950/40 rounded-lg px-3 py-2.5 leading-relaxed">
-                    🕵️ Vous verrez les picks des autres participants avant le début du match
-                  </p>
+                  espionCommitted ? (
+                    <p className="text-xs text-violet-300 bg-violet-950/40 rounded-lg px-3 py-2.5 leading-relaxed">
+                      🕵️ Espion validé — les picks des autres participants sont révélés ci-dessous.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <p className="text-xs text-violet-300 bg-violet-950/40 rounded-lg px-3 py-2.5 leading-relaxed">
+                        🕵️ Vous verrez les picks des autres participants avant le début du match
+                      </p>
+                      <p className="text-[11px] font-semibold text-amber-400 bg-amber-950/30 border border-amber-800/40 rounded-lg px-3 py-2 leading-relaxed">
+                        ⚠️ Une fois validé, le bonus ne pourra plus être annulé
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleValidateEspion}
+                        disabled={!canSubmit || isPending}
+                        className={[
+                          'w-full py-2.5 rounded-xl text-sm font-bold transition-all',
+                          canSubmit && !isPending
+                            ? 'bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white'
+                            : 'bg-zinc-800 text-zinc-500 cursor-not-allowed',
+                        ].join(' ')}
+                      >
+                        {isPending
+                          ? 'Validation…'
+                          : canSubmit
+                          ? "🕵️ Valider l'Espion"
+                          : 'Sélectionnez vos 4 joueurs d’abord'}
+                      </button>
+                    </div>
+                  )
                 )}
               </div>
             )}
