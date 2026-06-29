@@ -35,13 +35,11 @@ export default function ImportSofascorePage() {
     setLoadingList(true)
     const supabase = createClient()
 
-    const ratingsRes = await supabase
-      .from('cdm_player_ratings')
-      .select('match_id')
+    const { data: counts } = await supabase.rpc('get_ratings_count_by_match')
 
     const countByMatch: Record<string, number> = {}
-    for (const r of ratingsRes.data ?? []) {
-      countByMatch[r.match_id] = (countByMatch[r.match_id] ?? 0) + 1
+    for (const r of (counts ?? []) as { match_id: string; cnt: number }[]) {
+      countByMatch[r.match_id] = Number(r.cnt)
     }
 
     const matchIds = Object.keys(countByMatch)
