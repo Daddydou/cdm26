@@ -27,7 +27,7 @@ type CdmUser = { id: string; username: string; photo_url: string | null }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LOCK_TIME = new Date('2026-06-28T21:00:00Z')
+const LOCK_TIME = new Date('2026-06-29T17:00:00Z')
 
 const ROUND_CONFIG = [
   { key: 'seizieme', label: 'Seizièmes de finale' },
