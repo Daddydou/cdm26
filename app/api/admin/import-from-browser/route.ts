@@ -1,6 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeName, SOFA_TO_DB_NAME } from '@/app/scripts/sofascore-ratings'
 
+// Empêche l'évaluation/collecte statique au build — le client Supabase lit les env vars au runtime
+export const dynamic = 'force-dynamic'
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type IncomingPlayer = {

@@ -2,6 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Empêche l'évaluation/collecte statique au build — le client Supabase lit les env vars au runtime
+export const dynamic = 'force-dynamic'
+
 const ADMIN_EMAIL = 'lolo.rms@gmail.com'
 const ADMIN_PW = 'CDM2026fantasy2026'
 const SHARED_PW = 'CDM2026'

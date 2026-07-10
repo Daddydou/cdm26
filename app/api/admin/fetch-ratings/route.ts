@@ -7,6 +7,9 @@ import {
   type SofaPlayerRating,
 } from '@/app/scripts/sofascore-ratings'
 
+// Empêche l'évaluation/collecte statique au build — le client Supabase lit les env vars au runtime
+export const dynamic = 'force-dynamic'
+
 // ─── Matching nom joueur ───────────────────────────────────────────────────────
 
 function findPlayer(

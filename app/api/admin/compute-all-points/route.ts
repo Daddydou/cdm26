@@ -1,6 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { computeMatchPoints } from '@/app/actions/admin'
 
+// Empêche l'évaluation/collecte statique au build — le client Supabase lit les env vars au runtime
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const admin = createAdminClient()
 

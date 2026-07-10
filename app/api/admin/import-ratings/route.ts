@@ -1,5 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeName } from '@/app/scripts/sofascore-ratings'
+
+// Empêche l'évaluation/collecte statique au build — le client Supabase lit les env vars au runtime
+export const dynamic = 'force-dynamic'
 import { fetch as undiciFetch } from 'undici'
 import { computeMatchPoints } from '@/app/actions/admin'
 

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// Empêche l'évaluation/collecte statique au build — le client Supabase lit les env vars au runtime
+export const dynamic = 'force-dynamic'
+
 const ROUND_POINTS: Record<string, number> = {
   seizieme: 1,
   huitieme: 2,
