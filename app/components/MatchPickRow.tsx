@@ -1,5 +1,4 @@
 import Image from 'next/image'
-import { BonusMention, isJoueurX2 } from '@/app/components/BonusMention'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,7 +101,7 @@ export default function MatchPickRow({
           <div className="flex flex-wrap gap-1">
             {players.map(p => {
               const r = ratingsMap[`${matchId}:${p.id}`]
-              const isStar = p.id === pick.bonus_player_id && isJoueurX2(pick.bonus_type, pick.bonus_player_id)
+              const isStar = p.id === pick.bonus_player_id && pick.bonus_type === 'joueur_x2'
               return (
                 <span
                   key={p.id}
@@ -138,11 +137,13 @@ export default function MatchPickRow({
               </span>
             )}
           </div>
-          <BonusMention
-            compact
-            x2PlayerName={isJoueurX2(pick.bonus_type, pick.bonus_player_id) ? (bonusPlayer?.name ?? null) : null}
-            bonusLabel={bonusLabel}
-          />
+          {bonusLabel && (
+            <div>
+              <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded bg-violet-950/30 border border-violet-800/30 text-violet-300 font-semibold">
+                {bonusLabel}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

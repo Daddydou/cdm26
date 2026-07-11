@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { BonusMention, isJoueurX2 } from '@/app/components/BonusMention'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -157,7 +156,7 @@ function PickCard({
           {players.map(({ id, info }) => {
             if (!info) return null
             const r = id ? ratingsMap[id] : undefined
-            const isStar = !!id && id === pick.bonus_player_id && isJoueurX2(pick.bonus_type, pick.bonus_player_id)
+            const isStar = !!id && id === pick.bonus_player_id && pick.bonus_type === 'joueur_x2'
             return (
               <span key={id ?? info.name} className={[
                 'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
@@ -191,10 +190,11 @@ function PickCard({
           )}
         </div>
 
-        <BonusMention
-          x2PlayerName={isJoueurX2(pick.bonus_type, pick.bonus_player_id) ? (bonusPlayer?.name ?? null) : null}
-          bonusLabel={bonusLabel}
-        />
+        {bonusLabel && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
+            {bonusLabel}
+          </span>
+        )}
       </div>
     </div>
   )

@@ -6,7 +6,6 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import AvailablePlayersClient from './AvailablePlayersClient'
-import { BonusMention, isJoueurX2 } from '@/app/components/BonusMention'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -317,7 +316,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                             if (!info) return null
                             const rKey   = `${m.id}:${id}`
                             const r      = isFinished ? ratingsMap[rKey] : undefined
-                            const isStar = !!id && id === pick.bonus_player_id && isJoueurX2(pick.bonus_type, pick.bonus_player_id)
+                            const isStar = !!id && id === pick.bonus_player_id && pick.bonus_type === 'joueur_x2'
                             const rating = r?.fotmob_rating
 
                             return (
@@ -357,10 +356,13 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                             </span>
                           )}
                         </div>
-                        <BonusMention
-                          x2PlayerName={isJoueurX2(pick.bonus_type, pick.bonus_player_id) ? (bonusPlayer?.name ?? null) : null}
-                          bonusLabel={bonusLabel}
-                        />
+                        {bonusLabel && (
+                          <div>
+                            <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
+                              {bonusLabel}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
