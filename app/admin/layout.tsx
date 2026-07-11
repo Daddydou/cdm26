@@ -1,5 +1,10 @@
 import Link from 'next/link'
 
+// Section admin (auth requise) : jamais prérendue/cachée en statique.
+// Force le rendu dynamique de toutes les pages /admin/* — évite qu'un HTML
+// figé au build (ex. date du jour) soit resservi stale et casse l'hydratation.
+export const dynamic = 'force-dynamic'
+
 const NAV = [
   { href: '/admin',                    label: 'Dashboard' },
   { href: '/admin/matchs',             label: 'Matchs' },
