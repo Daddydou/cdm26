@@ -20,8 +20,7 @@ type ComputeState = 'idle' | 'loading' | 'done' | 'error'
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ImportSofascorePage() {
-  const today = new Date().toISOString().slice(0, 10)
-  const [date, setDate]       = useState(today)
+  const [date, setDate]       = useState('')
   const [copied, setCopied]   = useState(false)
   const [matches, setMatches] = useState<MatchRow[] | null>(null)
   const [loadingList, setLoadingList] = useState(true)
@@ -72,6 +71,9 @@ export default function ImportSofascorePage() {
   }, [])
 
   useEffect(() => { loadMatches() }, [loadMatches])
+
+  // Date du jour calculée après hydratation (évite un mismatch SSR/prérendu)
+  useEffect(() => { setDate(new Date().toISOString().slice(0, 10)) }, [])
 
   // ── Copie la commande ──────────────────────────────────────────────────────
 

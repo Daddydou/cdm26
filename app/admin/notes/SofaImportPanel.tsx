@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // ─── Import SofaScore ─────────────────────────────────────────────────────────
 
@@ -14,11 +14,13 @@ type ImportResult = {
 }
 
 export function SofaImportPanel() {
-  const today = new Date().toISOString().slice(0, 10)
-  const [date, setDate]     = useState(today)
+  const [date, setDate]     = useState('')
   const [state, setState]   = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [result, setResult] = useState<ImportResult | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // Date du jour calculée après hydratation (évite un mismatch SSR/prérendu)
+  useEffect(() => { setDate(new Date().toISOString().slice(0, 10)) }, [])
 
   async function run() {
     setState('loading')
