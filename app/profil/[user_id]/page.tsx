@@ -137,7 +137,7 @@ export default async function ProfilPage({ params }: { params: { user_id: string
   )]
 
   const { data: ratingsData } = matchIds.length > 0 && allPlayerIds.length > 0
-    ? await supabase
+    ? await supabaseAdmin
         .from('cdm_player_ratings')
         .select('player_id, match_id, fotmob_rating, goals, assists, penalty_saved')
         .in('match_id', matchIds)

@@ -65,7 +65,7 @@ export default async function MatchPage({ params }: { params: { match_id: string
   )]
 
   const { data: ratingsData } = playerIds.length > 0
-    ? await supabase
+    ? await supabaseAdmin
         .from('cdm_player_ratings')
         .select('player_id, fotmob_rating, goals, assists, penalty_saved')
         .eq('match_id', params.match_id)

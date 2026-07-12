@@ -84,7 +84,7 @@ export default async function ResultatsPage() {
       : Promise.resolve({ data: [] }),
 
     matchIds.length > 0
-      ? supabase
+      ? supabaseAdmin
           .from('cdm_player_ratings')
           .select('player_id, match_id, fotmob_rating, goals, assists, penalty_saved')
           .in('match_id', matchIds)
