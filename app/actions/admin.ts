@@ -213,17 +213,6 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
   return { error: null, computed }
 }
 
-// ─── triggerComputePoints ─────────────────────────────────────────────────────
-
-export async function triggerComputePoints(formData: FormData) {
-  const matchId = formData.get('match_id') as string
-  const result = await computeMatchPoints(matchId)
-  if (result.error) {
-    redirect(`/admin/matchs?error=${encodeURIComponent(result.error)}`)
-  }
-  redirect(`/admin/matchs?msg=${result.computed.length}+picks+calculés`)
-}
-
 // ─── createMatch ──────────────────────────────────────────────────────────────
 
 export async function createMatch(formData: FormData) {
