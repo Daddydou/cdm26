@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { effectiveRating, ratingColorClass } from '@/lib/scoring-display'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,9 @@ export default function MatchPickRow({
   const bonusPlayer  = pick.bonus_player
   const bonusPlayerR = bonusPlayer ? ratingsMap[`${matchId}:${bonusPlayer.id}`] : undefined
   const bonusRating  = bonusPlayerR?.fotmob_rating ?? 0
+  // Le plancher du bouclier ne s'applique qu'une fois le match noté, sinon un
+  // match à venir afficherait 5 pour tout le monde.
+  const matchHasRatings = Object.keys(ratingsMap).some(k => k.startsWith(`${matchId}:`))
 
   // Joueur ×2 : stocké via bonus_player_id seul (bonus_type null ou autre bonus classique).
   // Le 3e homme utilise aussi bonus_player_id, mais pour un 5e joueur ajouté — on l'exclut.
@@ -107,6 +111,7 @@ export default function MatchPickRow({
           <div className="flex flex-wrap gap-1">
             {players.map(p => {
               const r = ratingsMap[`${matchId}:${p.id}`]
+              const eff = effectiveRating(r?.fotmob_rating, pick.bonus_type, matchHasRatings)
               const isStar = p.id === x2PlayerId
               return (
                 <span
@@ -120,8 +125,13 @@ export default function MatchPickRow({
                 >
                   {isStar && <span className="text-[9px] text-yellow-400">⭐</span>}
                   <span>{p.name}</span>
-                  {r?.fotmob_rating != null
-                    ? <span className={`font-bold tabular-nums ${r.fotmob_rating >= 7 ? 'text-green-400' : r.fotmob_rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{r.fotmob_rating}</span>
+                  {eff.value != null
+                    ? <span
+                        className={`font-bold tabular-nums ${ratingColorClass(eff.value, eff.shielded)}`}
+                        title={eff.shielded ? 'Note remontée à 5 par le bouclier' : undefined}
+                      >
+                        {eff.value}{eff.shielded && <span className="ml-0.5 text-[9px]">🛡️</span>}
+                      </span>
                     : <span className="text-zinc-600">–</span>
                   }
                   {(r?.goals ?? 0) > 0 && <span>{'⚽'.repeat(r!.goals!)}</span>}

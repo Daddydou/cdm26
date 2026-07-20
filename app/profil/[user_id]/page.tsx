@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import AvailablePlayersClient from './AvailablePlayersClient'
+import { effectiveRating, ratingColorClass } from '@/lib/scoring-display'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -325,7 +326,9 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                             const rKey   = `${m.id}:${id}`
                             const r      = isFinished ? ratingsMap[rKey] : undefined
                             const isStar = !!id && id === x2PlayerId
-                            const rating = r?.fotmob_rating
+                            // isFinished sert de garde « match noté » : les notes ne
+                            // sont de toute façon pas affichées avant.
+                            const eff    = effectiveRating(r?.fotmob_rating, pick.bonus_type, isFinished)
 
                             return (
                               <span
@@ -341,8 +344,13 @@ export default async function ProfilPage({ params }: { params: { user_id: string
                                 <span className="text-[10px] text-zinc-600">{POS[info.position] ?? info.position}</span>
                                 <span>{info.name}</span>
                                 {isFinished && (
-                                  rating != null
-                                    ? <span className={`font-bold text-[10px] tabular-nums ${rating >= 7 ? 'text-green-400' : rating >= 5 ? 'text-zinc-400' : 'text-red-400'}`}>{rating}</span>
+                                  eff.value != null
+                                    ? <span
+                                        className={`font-bold text-[10px] tabular-nums ${ratingColorClass(eff.value, eff.shielded)}`}
+                                        title={eff.shielded ? 'Note remontée à 5 par le bouclier' : undefined}
+                                      >
+                                        {eff.value}{eff.shielded && <span className="ml-0.5">🛡️</span>}
+                                      </span>
                                     : <span className="text-zinc-600 text-[10px]">–</span>
                                 )}
                                 {(r?.goals ?? 0) > 0 && <span className="text-[10px]">{'⚽'.repeat(r!.goals!)}</span>}
