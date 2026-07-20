@@ -353,7 +353,14 @@ export default function PickClient({
     }
     return null
   })
-  const [allInAmount, setAllInAmount] = useState(5)
+  // Restaure la mise du pick existant, sinon 5. Sans ça, rouvrir un pick all_in
+  // réaffiche 5 et réécrit 5 en base à la sauvegarde. Repli sur l'ancienne clé
+  // "amount" pour les picks antérieurs à la standardisation sur "mise".
+  const [allInAmount, setAllInAmount] = useState<number>(() => {
+    const bd = existingPick?.bonus_data as Record<string, unknown> | null | undefined
+    const stored = bd?.mise ?? bd?.amount
+    return stored != null && Number.isFinite(Number(stored)) ? Number(stored) : 5
+  })
   // Espion : true dès que le bonus est sauvegardé en base (révèle les picks adverses, verrouille le retour arrière)
   const [espionCommitted, setEspionCommitted] = useState<boolean>(existingPick?.bonus_type === 'espion')
 
@@ -405,7 +412,8 @@ export default function PickClient({
 
     const bonusData: Record<string, unknown> = {}
     if (activeBonusType === 'troisieme_homme' && troisHommePlayer) bonusData.player_id = troisHommePlayer
-    if (activeBonusType === 'all_in') bonusData.amount = allInAmount
+    // clé "mise" : c'est celle que lisent compute_pick_points et computeMatchPoints
+    if (activeBonusType === 'all_in') bonusData.mise = allInAmount
 
     startTransition(async () => {
       const fd = new FormData()
