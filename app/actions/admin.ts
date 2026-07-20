@@ -97,7 +97,11 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     const isMur        = pick.bonus_type === 'mur'
     const isAllIn      = pick.bonus_type === 'all_in'
     const isTroisiemeH = pick.bonus_type === 'troisieme_homme'
-    const isJoueurX2   = pick.bonus_type === 'joueur_x2'
+    // Joueur ×2 : stocké via bonus_player_id seul, bonus_type restant null (ou portant
+    // un autre bonus classique). Le 3e homme réutilise bonus_player_id pour un 5e joueur
+    // ajouté — on l'exclut. Même condition que la fonction SQL compute_pick_points et que
+    // l'affichage des badges (MatchPickRow / MatchClient / profil).
+    const isJoueurX2   = pick.bonus_player_id != null && pick.bonus_type !== 'troisieme_homme'
 
     const ids = [pick.player_a1_id, pick.player_a2_id, pick.player_b1_id, pick.player_b2_id]
       .filter(Boolean) as string[]
