@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchRatingsForMatches } from '@/lib/fetch-ratings'
 import { cookies } from 'next/headers'
 import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
@@ -222,7 +223,7 @@ export default async function HomePage() {
   console.log('[page] matchs terminés:', terminatedMatchesRes.data?.length)
 
   // Round 2 — picks user + picks/ratings des matchs terminés + picks match en cours
-  const [userPicksRes, matchPicksRes, matchRatingsRes, enCoursPicksRes] = await Promise.all([
+  const [userPicksRes, matchPicksRes, matchRatings, enCoursPicksRes] = await Promise.all([
     me
       ? supabase
           .from('cdm_picks')
@@ -246,12 +247,7 @@ export default async function HomePage() {
           .order('points_finaux', { ascending: false, nullsFirst: false })
       : Promise.resolve({ data: [] }),
 
-    terminatedMatchIds.length > 0
-      ? supabaseAdmin
-          .from('cdm_player_ratings')
-          .select('player_id, match_id, fotmob_rating, goals, assists, penalty_saved')
-          .in('match_id', terminatedMatchIds)
-      : Promise.resolve({ data: [] }),
+    fetchRatingsForMatches(supabaseAdmin, terminatedMatchIds),
 
     // Picks de tous pour le match en cours — seulement si status='en_cours' (gate équité)
     enCoursMatch
@@ -292,7 +288,7 @@ export default async function HomePage() {
   }
 
   // Ratings map : `matchId:playerId`
-  const allRatings = (matchRatingsRes.data ?? []) as unknown as MatchRating[]
+  const allRatings = matchRatings as unknown as MatchRating[]
   const ratingsMap: Record<string, MatchRating> = {}
   for (const r of allRatings) {
     ratingsMap[`${r.match_id}:${r.player_id}`] = r

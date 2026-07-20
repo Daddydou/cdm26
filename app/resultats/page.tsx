@@ -4,6 +4,7 @@ import { formatInTimeZone } from 'date-fns-tz'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import MatchPickRow, { type MatchPick, type MatchRating } from '@/app/components/MatchPickRow'
+import { fetchRatingsForMatches } from '@/lib/fetch-ratings'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,8 +66,10 @@ export default async function ResultatsPage() {
   const matches = (matchesRaw ?? []) as unknown as Match[]
   const matchIds = matches.map(m => m.id)
 
-  // Picks (tous participants) + ratings en parallèle
-  const [matchPicksRes, matchRatingsRes] = await Promise.all([
+  // Picks (tous participants) + ratings en parallèle.
+  // Les notes passent par fetchRatingsForMatches : avec 133 matchs la réponse
+  // dépasse le plafond de 1000 lignes de PostgREST et serait tronquée.
+  const [matchPicksRes, allRatings] = await Promise.all([
     matchIds.length > 0
       ? supabaseAdmin
           .from('cdm_picks')
@@ -83,12 +86,7 @@ export default async function ResultatsPage() {
           .order('points_finaux', { ascending: false, nullsFirst: false })
       : Promise.resolve({ data: [] }),
 
-    matchIds.length > 0
-      ? supabaseAdmin
-          .from('cdm_player_ratings')
-          .select('player_id, match_id, fotmob_rating, goals, assists, penalty_saved')
-          .in('match_id', matchIds)
-      : Promise.resolve({ data: [] }),
+    fetchRatingsForMatches(supabaseAdmin, matchIds),
   ])
 
   // Picks groupés par match_id (déjà triés points desc)
@@ -100,9 +98,8 @@ export default async function ResultatsPage() {
   }
 
   // Ratings map : `matchId:playerId`
-  const allRatings = (matchRatingsRes.data ?? []) as unknown as MatchRating[]
   const ratingsMap: Record<string, MatchRating> = {}
-  for (const r of allRatings) {
+  for (const r of allRatings as unknown as MatchRating[]) {
     ratingsMap[`${r.match_id}:${r.player_id}`] = r
   }
 

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import AvailablePlayersClient from './AvailablePlayersClient'
 import { effectiveRating, ratingColorClass } from '@/lib/scoring-display'
+import { fetchRatingsForMatches } from '@/lib/fetch-ratings'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,18 +138,14 @@ export default async function ProfilPage({ params }: { params: { user_id: string
     }).filter(Boolean) as string[]
   )]
 
-  const { data: ratingsData } = matchIds.length > 0 && allPlayerIds.length > 0
-    ? await supabaseAdmin
-        .from('cdm_player_ratings')
-        .select('player_id, match_id, fotmob_rating, goals, assists, penalty_saved')
-        .in('match_id', matchIds)
-        .in('player_id', allPlayerIds)
-    : { data: [] as { player_id: string; match_id: string; fotmob_rating: number | null; goals: number | null; assists: number | null; penalty_saved: number | null }[] }
+  // Paginé : ce croisement atteint déjà 1000 lignes pour les profils les plus
+  // actifs, soit exactement le plafond de PostgREST.
+  const ratingsData = await fetchRatingsForMatches(supabaseAdmin, matchIds, allPlayerIds)
 
   // Clé : `matchId:playerId`
   const ratingsMap: Record<string, RatingData> = Object.fromEntries(
-    (ratingsData ?? []).map(r => [`${r.match_id}:${r.player_id}`, r])
-  )
+    ratingsData.map(r => [`${r.match_id}:${r.player_id}`, r])
+  ) as unknown as Record<string, RatingData>
 
   // Joueurs déjà utilisés + tous les joueurs (pour section disponibles)
   const [usedRes, allPlayersRes] = await Promise.all([

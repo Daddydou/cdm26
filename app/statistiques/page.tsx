@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { fetchRatingsForMatches } from '@/lib/fetch-ratings'
 import PointsChart from './PointsChart'
 import MatchLineChart from './MatchLineChart'
 import type { ChartUser, ChartPoint } from './PointsChart'
@@ -83,7 +84,10 @@ export default async function StatistiquesPage() {
   const users: CdmUser[] = (usersRes.data ?? []) as unknown as CdmUser[]
   const allMatchIds = allMatches.map(m => m.id)
 
-  const [picksRes, ratingsRes] = await Promise.all([
+  // Les notes passent par fetchRatingsForMatches : sur tous les matchs terminés
+  // la réponse dépasse le plafond de 1000 lignes de PostgREST, ce qui fausserait
+  // silencieusement les statistiques.
+  const [picksRes, allRatings] = await Promise.all([
     allMatchIds.length > 0
       ? supabaseAdmin
           .from('cdm_picks')
@@ -98,16 +102,11 @@ export default async function StatistiquesPage() {
           .in('match_id', allMatchIds)
       : Promise.resolve({ data: [] }),
 
-    allMatchIds.length > 0
-      ? supabaseAdmin
-          .from('cdm_player_ratings')
-          .select('player_id, match_id, fotmob_rating')
-          .in('match_id', allMatchIds)
-      : Promise.resolve({ data: [] }),
+    fetchRatingsForMatches(supabaseAdmin, allMatchIds),
   ])
 
   const extPicks = (picksRes.data ?? []) as unknown as ExtPick[]
-  const ratings  = (ratingsRes.data ?? []) as unknown as RatingRow[]
+  const ratings  = allRatings as unknown as RatingRow[]
 
   // Restreindre aux matchs ayant au moins un pick (exclure les matchs fantômes)
   const pickedMatchIds = new Set(extPicks.map(p => p.match_id))
