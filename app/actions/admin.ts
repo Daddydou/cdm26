@@ -45,28 +45,23 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
   if (picksError) return { error: picksError.message, computed: [] }
   if (!picks || picks.length === 0) return { error: null, computed: [] }
 
-  // Collecte tous les IDs joueurs + bonus_player_id pour troisieme_homme
-  const allPlayerIds = [...new Set(
-    picks.flatMap(p => {
-      const ids: string[] = [p.player_a1_id, p.player_a2_id, p.player_b1_id, p.player_b2_id]
-        .filter(Boolean) as string[]
-      if (p.bonus_type === 'troisieme_homme') {
-        if (p.bonus_player_id) ids.push(p.bonus_player_id)
-        // fallback legacy : certains picks stockaient le 3e joueur dans bonus_data.player_id
-        const bd = p.bonus_data as { player_id?: string } | null
-        if (bd?.player_id && bd.player_id !== p.bonus_player_id) ids.push(bd.player_id)
-      }
-      return ids
-    })
-  )]
-
+  // Toutes les notes du match, sans filtre joueur : sert à la fois de table de
+  // lookup par pick et de base pour la moyenne du match (règle all_in).
   const { data: ratingsData, error: ratingsError } = await admin
     .from('cdm_player_ratings')
     .select('player_id, fotmob_rating, goals, assists, penalty_saved')
     .eq('match_id', matchId)
-    .in('player_id', allPlayerIds)
 
   if (ratingsError) return { error: ratingsError.message, computed: [] }
+
+  // Moyenne de TOUS les joueurs notés du match (référence de comparaison all_in).
+  // Les notes absentes sont exclues, pas comptées comme 0.
+  const ratedValues = (ratingsData ?? [])
+    .map(r => r.fotmob_rating)
+    .filter((v): v is number => v != null)
+  const matchAvgRating = ratedValues.length > 0
+    ? ratedValues.reduce((s, v) => s + v, 0) / ratedValues.length
+    : 0
 
   type RatingFull = { fotmob_rating: number; goals: number; assists: number; penalty_saved: boolean }
   const ratingsMap: Record<string, RatingFull> = Object.fromEntries(
@@ -83,6 +78,7 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     pick:               typeof picks[0]
     points_bruts:       number   // somme des 4 joueurs, sans bonus de type
     points_finaux_base: number   // après bonus, avant multiplier et all_in
+    pickAvgRating:      number   // moyenne brute des 4 joueurs (comparaison all_in)
     isAllIn:            boolean
     mise:               number
   }
@@ -108,6 +104,7 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
 
     // points_bruts : somme des ratings des 4 joueurs pickés uniquement
     let points_bruts = 0
+    let rawSum       = 0   // somme des notes non modifiées (moyenne all_in)
     let totalGoals   = 0
     let totalAssists = 0
     let hasPenSave   = false
@@ -115,6 +112,7 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     for (const id of ids) {
       const r = ratingsMap[id]
       let rating = r?.fotmob_rating ?? 0
+      rawSum += rating
 
       if (isBouclier && rating < 5)                       rating = 5   // plancher à 5
       if (isJoueurX2 && id === pick.bonus_player_id)      rating *= 2  // ×2 joueur désigné
@@ -136,38 +134,35 @@ export async function computeMatchPoints(matchId: string): Promise<ComputeResult
     }
     if (isSniper)            pf += totalGoals   * 3   // +3 par but
     if (isPasseur)           pf += totalAssists * 3   // +3 par passe décisive
-    if (isMur && hasPenSave) pf += 8                  // +8 si penalty arrêté
+    if (isMur && hasPenSave) pf += 5                  // +5 si penalty arrêté
     if (isDoubleMise)        pf *= 2                   // ×2
 
     calcs.push({
       pick,
       points_bruts:       Math.round(points_bruts * 100) / 100,
       points_finaux_base: Math.round(pf * 100) / 100,
+      pickAvgRating:      ids.length > 0 ? rawSum / ids.length : 0,
       isAllIn,
-      mise: isAllIn ? Math.min(10, Math.max(1, Number(bd?.amount ?? 5))) : 0,
+      // clé "mise" (pas "amount"), pas de clamp — cf. compute_pick_points
+      mise: isAllIn ? Number(bd?.mise ?? 0) : 0,
     })
   }
 
-  // ── Passe 2 : All-In (comparaison avec moyenne des non-all-in) ────────────
-  const nonAllInAvg = (() => {
-    const base = calcs.filter(c => !c.isAllIn)
-    if (base.length === 0) return 0
-    return base.reduce((sum, c) => sum + c.points_bruts, 0) / base.length
-  })()
-
+  // ── Passe 2 : All-In ──────────────────────────────────────────────────────
+  // Comparaison : moyenne des 4 joueurs du pick vs moyenne de tous les joueurs
+  // notés du match. Ne dépend plus des autres picks.
   const computed: PickSummary[] = []
   const affectedUserIds = new Set<string>()
 
   for (const calc of calcs) {
-    let points_bruts  = calc.points_bruts
-    let points_finaux = calc.points_finaux_base
+    const points_bruts = calc.points_bruts
+    let points_finaux  = calc.points_finaux_base
 
     if (calc.isAllIn) {
-      const adjusted = calc.points_bruts > nonAllInAvg
-        ? Math.round((calc.points_bruts + calc.mise) * 100) / 100
-        : Math.round(Math.max(0, calc.points_bruts - calc.mise) * 100) / 100
-      points_bruts  = adjusted
-      points_finaux = adjusted
+      // Pas de plancher : le total peut devenir négatif.
+      points_finaux = calc.pickAvgRating > matchAvgRating
+        ? points_finaux + calc.mise
+        : points_finaux - calc.mise
     }
 
     points_finaux = Math.round(points_finaux * multiplier * 100) / 100
