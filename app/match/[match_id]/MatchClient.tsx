@@ -105,6 +105,15 @@ function PickCard({
   const bonusPlayer   = pick.bonus_player
   const bonusPlayerR  = bonusPlayer ? ratingsMap[bonusPlayer.id] : undefined
   const bonusRating   = bonusPlayerR?.fotmob_rating ?? 0
+  // Joueur ×2 : stocké via bonus_player_id seul (bonus_type null ou autre bonus classique).
+  // Le 3e homme utilise aussi bonus_player_id, mais pour un 5e joueur ajouté — on l'exclut.
+  const x2PlayerId    = pick.bonus_type === 'troisieme_homme' ? null : pick.bonus_player_id
+  const x2Name        = x2PlayerId
+    ? (bonusPlayer?.id === x2PlayerId
+        ? bonusPlayer.name
+        : players.find(p => p.id === x2PlayerId)?.info?.name) ?? null
+    : null
+
   const bonusLabel    = (() => {
     switch (pick.bonus_type) {
       case 'sniper':          return `🎯 Sniper +${totalGoals * 3}`
@@ -113,7 +122,6 @@ function PickCard({
       case 'mur':             return hasPenSave ? '🧱 Mur +8' : '🧱 Mur +0'
       case 'double_mise':     return '⚡ Double Mise ×2'
       case 'bouclier':        return '🛡️ Bouclier'
-      case 'joueur_x2':       return '⭐ Joueur ×2'
       case 'espion':          return '🕵️ Espion'
       case 'all_in':          return '🎲 All-In'
       default: return null
@@ -156,7 +164,7 @@ function PickCard({
           {players.map(({ id, info }) => {
             if (!info) return null
             const r = id ? ratingsMap[id] : undefined
-            const isStar = !!id && id === pick.bonus_player_id && pick.bonus_type === 'joueur_x2'
+            const isStar = !!id && id === x2PlayerId
             return (
               <span key={id ?? info.name} className={[
                 'inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border',
@@ -190,10 +198,19 @@ function PickCard({
           )}
         </div>
 
-        {bonusLabel && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
-            {bonusLabel}
-          </span>
+        {(bonusLabel || x2Name) && (
+          <div className="flex flex-wrap gap-1.5">
+            {x2Name && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-yellow-300 bg-yellow-950/30 border border-yellow-800/30 px-2 py-0.5 rounded-md">
+                ⭐ ×2 {x2Name}
+              </span>
+            )}
+            {bonusLabel && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-violet-300 bg-violet-950/30 border border-violet-800/30 px-2 py-0.5 rounded-md">
+                {bonusLabel}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
